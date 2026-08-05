@@ -1,10 +1,9 @@
 /**
  * Wildhaven — contextual build strip.
  *
- * Sits just above the bottom toolbar and shows the palette for whichever tab is
- * open. Picking a buildable arms the store's build mode (so the 3D scene shows a
- * ghost and a click places it); picking a species arms adoption; the staff tab
- * hires directly. Selecting the armed item again disarms it.
+ * Habitat tab: pick a biome, claim closed enclosures, place fences/gates.
+ * Biome chips update the selected habitat immediately, and set the biome used
+ * when a new enclosure is claimed.
  */
 
 import type { Biome } from "../game/types";
@@ -17,7 +16,7 @@ import { useGameStore } from "../store/gameStore";
 
 const money = (n: number) => (n <= 0 ? "Free" : `$${n.toLocaleString()}`);
 
-const BIOMES: { id: Biome; label: string; icon: string }[] = [
+export const BIOMES: { id: Biome; label: string; icon: string }[] = [
   { id: "savanna", label: "Savanna", icon: "🌾" },
   { id: "forest", label: "Forest", icon: "🌲" },
   { id: "wetland", label: "Wetland", icon: "💧" },
@@ -26,8 +25,10 @@ const BIOMES: { id: Biome; label: string; icon: string }[] = [
   { id: "mountain", label: "Mountain", icon: "⛰️" },
 ];
 
-/** Which building categories each tab surfaces (in order). */
-const TAB_CATEGORIES: Record<BuildTab, Array<"habitat" | "scenery" | "enrichment" | "guest" | "staff">> = {
+const TAB_CATEGORIES: Record<
+  BuildTab,
+  Array<"habitat" | "scenery" | "enrichment" | "guest" | "staff">
+> = {
   habitat: ["habitat"],
   scenery: ["scenery", "enrichment"],
   guest: ["guest"],
@@ -36,7 +37,7 @@ const TAB_CATEGORIES: Record<BuildTab, Array<"habitat" | "scenery" | "enrichment
 };
 
 const TAB_TITLE: Record<BuildTab, string> = {
-  habitat: "Fencing & gates",
+  habitat: "Habitats & fencing",
   scenery: "Scenery & enrichment",
   guest: "Guest amenities",
   staff: "Staff facilities & hiring",
@@ -48,16 +49,31 @@ export default function BuildBar({ tab }: { tab: BuildTab }) {
   const cash = useGameStore((s) => s.finances.cash);
   const buildBiome = useGameStore((s) => s.buildBiome);
   const unlockedSpecies = useGameStore((s) => s.unlockedSpecies);
+  const selection = useGameStore((s) => s.selection);
+  const selectedHabitat = useGameStore((s) =>
+    s.selection?.kind === "habitat" ? s.habitats[s.selection.id] : null,
+  );
 
   const setBuildMode = useGameStore((s) => s.setBuildMode);
   const setBuildBiome = useGameStore((s) => s.setBuildBiome);
+  const setHabitatBiome = useGameStore((s) => s.setHabitatBiome);
   const hireStaff = useGameStore((s) => s.hireStaff);
 
+  const activeBiome = selectedHabitat?.biome ?? buildBiome;
+
+  const pickBiome = (biome: Biome) => {
+    setBuildBiome(biome);
+    if (selection?.kind === "habitat") {
+      setHabitatBiome(selection.id, biome);
+    }
+  };
+
   const selectBuilding = (defId: string) => {
-    const armed = build.tool === "place" || build.tool === "fence" || build.tool === "gate"
-      ? build.selectedDefId === defId
-      : false;
-    if (armed && (build.tool === "place" || build.tool === "fence" || build.tool === "gate")) {
+    const armed =
+      build.tool === "place" || build.tool === "fence" || build.tool === "gate"
+        ? build.selectedDefId === defId
+        : false;
+    if (armed) {
       setBuildMode({
         active: false,
         tool: "none",
@@ -85,6 +101,15 @@ export default function BuildBar({ tab }: { tab: BuildTab }) {
     );
   };
 
+  const toggleClaim = () => {
+    const armed = build.tool === "claim";
+    setBuildMode(
+      armed
+        ? { active: false, tool: "none", selectedDefId: undefined, selectedSpeciesId: undefined }
+        : { active: true, tool: "claim", selectedDefId: undefined, selectedSpeciesId: undefined },
+    );
+  };
+
   const buildings = TAB_CATEGORIES[tab]
     .flatMap((c) => buildingsByCategory(c))
     .filter((d) => d.id !== "entrance-arch");
@@ -93,22 +118,51 @@ export default function BuildBar({ tab }: { tab: BuildTab }) {
     <div className="buildbar glass">
       <div className="buildbar__title">{TAB_TITLE[tab]}</div>
 
+      {tab === "habitat" && (
+        <div className="buildbar__biome-block">
+          <p className="buildbar__hint">
+            {selectedHabitat
+              ? `Editing “${selectedHabitat.name}” — pick a biome below.`
+              : "Pick a biome, fence a closed loop (or use Claim), then adopt matching animals."}
+          </p>
+          <div className="buildbar__strip buildbar__strip--biomes">
+            {BIOMES.map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                className={activeBiome === b.id ? "biome biome--on" : "biome"}
+                onClick={() => pickBiome(b.id)}
+                title={
+                  selectedHabitat
+                    ? `Set this habitat to ${b.label}`
+                    : `New habitats will be ${b.label}`
+                }
+              >
+                <span className="biome__icon" aria-hidden>
+                  {b.icon}
+                </span>
+                <span className="biome__label">{b.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="buildbar__strip">
-        {tab === "habitat" &&
-          BIOMES.map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              className={buildBiome === b.id ? "biome biome--on" : "biome"}
-              onClick={() => setBuildBiome(b.id)}
-              title={`New enclosures default to ${b.label}`}
-            >
-              <span className="biome__icon" aria-hidden>
-                {b.icon}
-              </span>
-              <span className="biome__label">{b.label}</span>
-            </button>
-          ))}
+        {tab === "habitat" && (
+          <button
+            type="button"
+            className={build.tool === "claim" ? "item item--on" : "item"}
+            onClick={toggleClaim}
+            title="Click inside a closed fence to register it as a habitat with the selected biome"
+          >
+            <span className="item__icon" aria-hidden>
+              🗺️
+            </span>
+            <span className="item__name">Claim habitat</span>
+            <span className="item__cost">Free</span>
+          </button>
+        )}
 
         {tab === "animals"
           ? unlockedSpecies.map((id) => {
@@ -122,12 +176,13 @@ export default function BuildBar({ tab }: { tab: BuildTab }) {
                   type="button"
                   className={`item${armed ? " item--on" : ""}${poor ? " item--poor" : ""}`}
                   onClick={() => selectSpecies(id)}
-                  title={s.description}
+                  title={`${s.description} · Needs ${s.biome}`}
                 >
                   <span className="item__icon" aria-hidden>
                     {s.icon}
                   </span>
                   <span className="item__name">{s.name}</span>
+                  <span className="item__meta">{s.biome}</span>
                   <span className="item__cost">{money(s.cost)}</span>
                 </button>
               );

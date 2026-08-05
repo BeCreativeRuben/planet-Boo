@@ -24,7 +24,7 @@ export function HabitatHighlights() {
   const tool = useGameStore((s) => s.build.tool);
   const buildActive = useGameStore((s) => s.build.active);
 
-  const showAll = buildActive && tool === "animal";
+  const showAll = buildActive && (tool === "animal" || tool === "claim");
 
   return (
     <group>

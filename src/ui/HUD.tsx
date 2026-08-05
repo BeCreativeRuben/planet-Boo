@@ -19,7 +19,7 @@ import { useGameStore } from "../store/gameStore";
 import { useUIStore, type BuildTab } from "../store/uiStore";
 import { parkAppeal, welfareForAnimal } from "../store/selectors";
 
-import BuildBar from "./BuildBar";
+import BuildBar, { BIOMES } from "./BuildBar";
 import AnimalPanel, { FactorBar, toneFor } from "./AnimalPanel";
 import Notifications from "./Notifications";
 import FinancePanel from "./FinancePanel";
@@ -284,6 +284,7 @@ function AnimalInspector({ id }: { id: string }) {
 
 function HabitatInspector({ id }: { id: string }) {
   const h = useGameStore((s) => s.habitats[id]);
+  const setHabitatBiome = useGameStore((s) => s.setHabitatBiome);
   if (!h) return null;
   const species = h.speciesId ? getSpecies(h.speciesId) : undefined;
   return (
@@ -299,6 +300,25 @@ function HabitatInspector({ id }: { id: string }) {
           </p>
         </div>
       </header>
+
+      <p className="inspector__note">Biome (must match the animals you keep here)</p>
+      <div className="inspector__biomes">
+        {BIOMES.map((b) => (
+          <button
+            key={b.id}
+            type="button"
+            className={h.biome === b.id ? "biome biome--on" : "biome"}
+            onClick={() => setHabitatBiome(id, b.id)}
+            title={`Set habitat to ${b.label}`}
+          >
+            <span className="biome__icon" aria-hidden>
+              {b.icon}
+            </span>
+            <span className="biome__label">{b.label}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="factors">
         <FactorBar label="Temp" value={Math.min(100, (h.temperature + 20) * 1.6)} />
         <FactorBar label="Humidity" value={h.humidity} />

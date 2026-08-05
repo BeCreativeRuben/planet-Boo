@@ -179,12 +179,18 @@ const CONTENT: Record<SectionId, ReactNode> = {
       <h3>Enclosure checklist</h3>
       <ol className="guide__list">
         <li>
-          Ring a closed fence (Habitat tools → Fence), drop a Gate on one side, then use
-          Habitat / paint tools so the game recognizes the interior.
+          Open <strong>Habitat</strong>, pick a <strong>biome</strong> (Savanna, Forest,
+          …). That biome applies to new enclosures and to whatever habitat you have
+          selected.
         </li>
         <li>
-          Set the habitat biome to match the species before adopting (biome chips in the
-          Habitat build strip).
+          Ring a closed fence (Habitat tools → Fence), drop a Gate on one side. When the
+          loop closes, Wildhaven auto-claims it — or use <strong>Claim habitat</strong>{" "}
+          and click inside.
+        </li>
+        <li>
+          Click the habitat tint / select it, then change biome chips if you picked the
+          wrong one. Temp and humidity update with the biome.
         </li>
         <li>
           Give enough area — large/huge animals need big footprints. Crowding tanks the

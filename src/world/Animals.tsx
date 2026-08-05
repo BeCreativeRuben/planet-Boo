@@ -60,7 +60,10 @@ function AnimalMesh({ id }: { id: string }) {
   const placing = useGameStore(
     (s) =>
       s.build.active &&
-      (s.build.tool === "place" || s.build.tool === "fence" || s.build.tool === "gate"),
+      (s.build.tool === "place" ||
+        s.build.tool === "fence" ||
+        s.build.tool === "gate" ||
+        s.build.tool === "claim"),
   );
 
   const ringR = 0.7 * scale;

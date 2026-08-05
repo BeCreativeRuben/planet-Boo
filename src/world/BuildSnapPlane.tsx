@@ -87,6 +87,11 @@ export function BuildSnapPlane() {
     return null;
   }
 
+  // Claim tool: click inside a closed fence to register a habitat.
+  if (tool === "claim") {
+    return <ClaimSnapPlane plotSize={plotSize} />;
+  }
+
   const setControlsEnabled = (on: boolean) => {
     if (controls && "enabled" in controls) controls.enabled = on;
   };
@@ -208,6 +213,52 @@ function SnapCellHighlight() {
       <planeGeometry args={[0.96, 0.96]} />
       <meshBasicMaterial color={color} transparent opacity={0.45} depthWrite={false} />
     </mesh>
+  );
+}
+
+/** Click-to-claim plane for registering a fenced enclosure as a habitat. */
+function ClaimSnapPlane({ plotSize }: { plotSize: number }) {
+  const controls = useThree((s) => s.controls) as { enabled?: boolean } | null;
+
+  const onPointerMove = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    const cell = cellFromPoint(e.point, plotSize);
+    useGameStore.getState().setHoverCell(cell);
+  };
+
+  const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    const cell = cellFromPoint(e.point, plotSize);
+    if (!cell) return;
+    if (controls && "enabled" in controls) controls.enabled = false;
+    const id = useGameStore.getState().createHabitat(cell);
+    if (!id) {
+      // Soft feedback: flash invalid by leaving hover red briefly — validity
+      // for claim is "can we enclose?" which createHabitat already checks.
+    }
+  };
+
+  const onPointerUp = () => {
+    if (controls && "enabled" in controls) controls.enabled = true;
+  };
+
+  return (
+    <group>
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0.04, 0]}
+        onPointerMove={onPointerMove}
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
+        onPointerOut={() => useGameStore.getState().setHoverCell(null)}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <planeGeometry args={[plotSize, plotSize]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
+      <SnapCellHighlight />
+    </group>
   );
 }
 

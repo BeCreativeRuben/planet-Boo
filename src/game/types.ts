@@ -260,6 +260,7 @@ export type BuildTool =
   | "fence"
   | "gate"
   | "animal"
+  | "claim"
   | "delete";
 
 export interface BuildMode {

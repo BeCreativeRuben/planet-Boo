@@ -221,7 +221,10 @@ function PlacedBuilding({ id }: { id: string }) {
   const placing = useGameStore(
     (s) =>
       s.build.active &&
-      (s.build.tool === "place" || s.build.tool === "fence" || s.build.tool === "gate"),
+      (s.build.tool === "place" ||
+        s.build.tool === "fence" ||
+        s.build.tool === "gate" ||
+        s.build.tool === "claim"),
   );
   if (!building) return null;
   const def = getBuilding(building.defId);

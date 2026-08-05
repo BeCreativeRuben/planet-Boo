@@ -57,6 +57,7 @@ import {
   forgetEntity,
   landExpansionCost,
   plotOffset,
+  cellCenter,
   spawnGuest as makeGuest,
   stepGuest,
   updateHabitatsFromBuildings,
@@ -81,6 +82,39 @@ const NAMES = [
   "Juma", "Kesi", "Lulu", "Moyo", "Nuru", "Oba", "Penda", "Rudo",
 ];
 
+/** Is this grid cell already inside a registered habitat? */
+function cellCoveredByHabitat(habitats: Record<string, Habitat>, cell: Vec2): boolean {
+  const c = cellCenter(cell);
+  for (const h of Object.values(habitats)) {
+    if (
+      c.x >= h.bounds.min.x &&
+      c.x <= h.bounds.max.x &&
+      c.z >= h.bounds.min.z &&
+      c.z <= h.bounds.max.z
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * After placing a fence piece, probe neighbouring empty cells for a newly
+ * closed enclosure and register it with the active biome.
+ */
+function claimEnclosuresNear(cell: Vec2): void {
+  const seeds = [
+    { x: cell.x + 1, z: cell.z },
+    { x: cell.x - 1, z: cell.z },
+    { x: cell.x, z: cell.z + 1 },
+    { x: cell.x, z: cell.z - 1 },
+    { x: cell.x + 1, z: cell.z + 1 },
+    { x: cell.x - 1, z: cell.z - 1 },
+  ];
+  for (const seed of seeds) {
+    useGameStore.getState().createHabitat(seed);
+  }
+}
 /* -------------------------------------------------------------------------- */
 /*  Selection                                                                 */
 /* -------------------------------------------------------------------------- */
@@ -131,6 +165,8 @@ export interface ZooStore extends GameState {
   hireStaff: (role: StaffRole) => void;
   /** Expand the owned plot by PLOT_STEP if affordable. Returns false if blocked. */
   buyLand: () => boolean;
+  /** Change an existing habitat's biome (and matching climate). */
+  setHabitatBiome: (habitatId: string, biome: Biome) => void;
 
   /* --- selection --- */
   selectEntity: (selection: Selection | null) => void;
@@ -496,8 +532,13 @@ export const useGameStore = create<ZooStore>((set, get) => ({
 
     const building = makeBuilding(defId, cell, rotation);
     const buildings = { ...s.buildings, [building.instanceId]: building };
-    const habitats = updateHabitatsFromBuildings(s.habitats, buildings);
+    let habitats = updateHabitatsFromBuildings(s.habitats, buildings);
     set({ buildings, habitats, finances: applyPurchase(s.finances, def.cost) });
+
+    // Closing a fence loop should register a habitat with the active biome.
+    if (defId === "fence-segment" || defId === "habitat-gate") {
+      claimEnclosuresNear(cell);
+    }
   },
 
   demolish: (instanceId) => {
@@ -515,9 +556,20 @@ export const useGameStore = create<ZooStore>((set, get) => ({
 
   createHabitat: (seed, opts) => {
     const s = get();
+    if (cellCoveredByHabitat(s.habitats, seed)) return null;
+
     const fenceCells = collectFenceCells(s.buildings);
     const enclosure = floodFillEnclosure(seed, fenceCells);
     if (!enclosure.bounded || enclosure.cells.size < 4) return null;
+
+    // Don't claim a region that already overlaps an existing habitat heavily.
+    for (const h of Object.values(s.habitats)) {
+      const ox = Math.max(enclosure.bounds.min.x, h.bounds.min.x);
+      const oz = Math.max(enclosure.bounds.min.z, h.bounds.min.z);
+      const ox2 = Math.min(enclosure.bounds.max.x, h.bounds.max.x);
+      const oz2 = Math.min(enclosure.bounds.max.z, h.bounds.max.z);
+      if (ox2 > ox && oz2 > oz) return null;
+    }
 
     const biome = opts?.biome ?? s.buildBiome;
     const climate = BIOME_CLIMATE[biome];
@@ -539,8 +591,45 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       animalIds: [],
       buildingIds: [],
     };
-    set({ habitats: updateHabitatsFromBuildings({ ...s.habitats, [id]: habitat }, s.buildings) });
+    set({
+      habitats: updateHabitatsFromBuildings({ ...s.habitats, [id]: habitat }, s.buildings),
+      selection: { kind: "habitat", id },
+    });
     return id;
+  },
+
+  setHabitatBiome: (habitatId, biome) => {
+    const s = get();
+    const h = s.habitats[habitatId];
+    if (!h) return;
+    const climate = BIOME_CLIMATE[biome];
+    const next: Habitat = {
+      ...h,
+      biome,
+      temperature: climate.temperature,
+      humidity: climate.humidity,
+      name: h.name.includes("Enclosure")
+        ? `${capitalize(biome)} Enclosure`
+        : h.name,
+    };
+
+    // Refresh welfare for animals living here.
+    const animals: Record<string, Animal> = { ...s.animals };
+    for (const aid of next.animalIds) {
+      const a = animals[aid];
+      if (!a) continue;
+      const herd = herdSize(next, animals, a.speciesId);
+      animals[aid] = {
+        ...a,
+        welfare: computeWelfare(a, next, herd).score,
+      };
+    }
+
+    set({
+      habitats: { ...s.habitats, [habitatId]: next },
+      animals,
+      buildBiome: biome,
+    });
   },
 
   addAnimalToHabitat: (speciesId, habitatId) => {

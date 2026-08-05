@@ -661,12 +661,25 @@ button {
   margin-bottom: 0.55rem;
   padding-left: 0.15rem;
 }
+.buildbar__biome-block {
+  margin-bottom: 0.65rem;
+}
+.buildbar__hint {
+  margin: 0 0 0.45rem;
+  padding-left: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.35;
+}
 .buildbar__strip {
   display: flex;
   gap: 0.5rem;
   overflow-x: auto;
   padding-bottom: 0.25rem;
   scrollbar-width: thin;
+}
+.buildbar__strip--biomes {
+  margin-bottom: 0.35rem;
 }
 .buildbar__strip::-webkit-scrollbar {
   height: 7px;
@@ -721,6 +734,23 @@ button {
   font-size: 0.7rem;
   color: var(--amber-glow);
   font-variant-numeric: tabular-nums;
+}
+.item__meta {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.inspector__biomes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.35rem 0 0.75rem;
+}
+.inspector__biomes .biome {
+  width: 64px;
+  padding: 0.4rem 0.2rem;
 }
 
 .biome {
