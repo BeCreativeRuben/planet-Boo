@@ -113,20 +113,21 @@ const CONTENT: Record<SectionId, ReactNode> = {
       <h3>Where money goes</h3>
       <ul className="guide__list">
         <li>
-          <strong>Food</strong> — every animal has a daily food bill. Big carnivores and
-          elephants eat your margin.
+          <strong>Food</strong> — every animal has a daily food bill that accrues
+          through the day (shown under Animal food). Big carnivores and elephants
+          eat your margin.
         </li>
         <li>
-          <strong>Staff wages</strong> — keepers, vets, vendors, mechanics. Hire what you
-          need; idle payroll is silent bankruptcy.
+          <strong>Staff wages</strong> — keepers, vets, vendors, mechanics. Wages
+          accrue continuously; idle payroll is silent bankruptcy.
         </li>
         <li>
-          <strong>Upkeep</strong> — every placed building costs a little each day. Fence
-          spam and unused stalls add up.
+          <strong>Upkeep</strong> — every placed building costs a little each day
+          (fences are cheap; shops and clinics cost more).
         </li>
         <li>
-          <strong>Capital</strong> — one-off buys (animals, buildings, hires). These hit
-          cash immediately.
+          <strong>Construction</strong> — one-off buys (animals, buildings, hires,
+          land). These hit Balance and Net today immediately.
         </li>
       </ul>
       <p className="guide__tip">

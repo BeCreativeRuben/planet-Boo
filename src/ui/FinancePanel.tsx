@@ -7,6 +7,9 @@
  */
 
 import {
+  dailyAnimalCosts,
+  dailyStaffWages,
+  dailyUpkeep,
   ledgerExpense,
   ledgerIncome,
   ledgerNet,
@@ -30,15 +33,20 @@ function Row({
   label,
   value,
   kind,
+  hint,
 }: {
   label: string;
   value: number;
   kind?: "in" | "out";
+  hint?: string;
 }) {
   const sign = kind === "out" ? -1 : 1;
   return (
     <div className="ledger__row">
-      <span className="ledger__label">{label}</span>
+      <span className="ledger__label">
+        {label}
+        {hint ? <span className="ledger__hint"> · {hint}</span> : null}
+      </span>
       <span
         className={kind === "out" ? "ledger__val ledger__val--out" : "ledger__val"}
       >
@@ -53,6 +61,9 @@ export default function FinancePanel() {
   const close = useUIStore((s) => s.toggleFinance);
 
   const finances = useGameStore((s) => s.finances);
+  const animals = useGameStore((s) => s.animals);
+  const staff = useGameStore((s) => s.staff);
+  const buildings = useGameStore((s) => s.buildings);
   const plotSize = useGameStore((s) => s.plotSize);
   const setTicketPrice = useGameStore((s) => s.setTicketPrice);
   const buyLand = useGameStore((s) => s.buyLand);
@@ -62,7 +73,10 @@ export default function FinancePanel() {
   const today = finances.today;
   const income = ledgerIncome(today);
   const expense = ledgerExpense(today);
-  const net = income - expense;
+  const net = ledgerNet(today);
+  const foodDay = dailyAnimalCosts(animals);
+  const wageDay = dailyStaffWages(staff);
+  const upkeepDay = dailyUpkeep(buildings);
   const [minPrice, maxPrice] = TICKET_PRICE_RANGE;
   const landCost = landExpansionCost(plotSize);
   const canExpand = plotSize < MAX_PLOT_SIZE && finances.cash >= landCost;
@@ -145,12 +159,31 @@ export default function FinancePanel() {
 
         <div className="ledger">
           <h3 className="ledger__title">Today · Day {today.day}</h3>
+          <p className="finance__hint" style={{ marginTop: 0 }}>
+            Income and running costs accrue through the day into Balance. Purchases
+            hit Construction and Balance immediately.
+          </p>
           <Row label="Ticket sales" value={today.ticketIncome} kind="in" />
           <Row label="Shops &amp; stalls" value={today.shopIncome} kind="in" />
           <Row label="Donations" value={today.donationIncome} kind="in" />
-          <Row label="Animal food" value={today.animalCosts} kind="out" />
-          <Row label="Staff wages" value={today.staffWages} kind="out" />
-          <Row label="Upkeep" value={today.upkeep} kind="out" />
+          <Row
+            label="Animal food"
+            value={today.animalCosts}
+            kind="out"
+            hint={`${money(foodDay)}/day`}
+          />
+          <Row
+            label="Staff wages"
+            value={today.staffWages}
+            kind="out"
+            hint={`${money(wageDay)}/day`}
+          />
+          <Row
+            label="Upkeep"
+            value={today.upkeep}
+            kind="out"
+            hint={`${money(upkeepDay)}/day`}
+          />
           <Row label="Construction" value={today.capitalSpend} kind="out" />
           <div className="ledger__row ledger__row--net">
             <span className="ledger__label">Net today</span>
@@ -161,6 +194,10 @@ export default function FinancePanel() {
               {money(net)}
             </span>
           </div>
+          <p className="finance__hint">
+            Net = income − food − wages − upkeep − construction ({money(income)} −{" "}
+            {money(expense)}).
+          </p>
         </div>
 
         {finances.history.length > 0 && (

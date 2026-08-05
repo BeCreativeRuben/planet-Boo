@@ -349,12 +349,12 @@ export function seedDemoParkIfEmpty(): boolean {
       conservationPoints: 145,
       today: {
         ...newLedgerDay(6),
-        ticketIncome: 3980,
-        shopIncome: 1624,
-        donationIncome: 21,
-        animalCosts: 592,
-        staffWages: 400,
-        upkeep: 138,
+        ticketIncome: 3980 * 0.62,
+        shopIncome: 1624 * 0.62,
+        donationIncome: 21 * 0.62,
+        animalCosts: 661 * 0.62,
+        staffWages: 510 * 0.62,
+        upkeep: 45 * 0.62,
         capitalSpend: 0,
       },
       history: [

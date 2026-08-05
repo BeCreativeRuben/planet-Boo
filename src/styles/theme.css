@@ -924,6 +924,12 @@ button {
 .ledger__label {
   color: var(--text-dim);
 }
+.ledger__hint {
+  color: var(--text-dim);
+  opacity: 0.7;
+  font-weight: 500;
+  font-size: 0.78em;
+}
 .ledger__val {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
