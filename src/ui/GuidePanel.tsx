@@ -1,0 +1,264 @@
+/**
+ * Wildhaven — Keeper's Guide.
+ *
+ * In-game handbook for not going broke and keeping animals thriving.
+ * Content mirrors the real economy / welfare models in game/*.ts.
+ */
+
+import { useState, type ReactNode } from "react";
+import { useUIStore } from "../store/uiStore";
+
+type SectionId = "start" | "money" | "animals" | "habitats" | "staff" | "guests";
+
+const SECTIONS: { id: SectionId; icon: string; title: string }[] = [
+  { id: "start", icon: "🌅", title: "First days" },
+  { id: "money", icon: "💰", title: "Don't go broke" },
+  { id: "animals", icon: "🦁", title: "Keep animals alive" },
+  { id: "habitats", icon: "🌿", title: "Build good habitats" },
+  { id: "staff", icon: "🧑‍🌾", title: "Hire the right staff" },
+  { id: "guests", icon: "🎟️", title: "Happy guests" },
+];
+
+export default function GuidePanel() {
+  const open = useUIStore((s) => s.guideOpen);
+  const close = useUIStore((s) => s.toggleGuide);
+  const [section, setSection] = useState<SectionId>("start");
+
+  if (!open) return null;
+
+  return (
+    <div className="modal" role="dialog" aria-modal="true" aria-label="Keeper's Guide">
+      <div className="modal__scrim" onClick={close} />
+      <div className="modal__card glass guide">
+        <header className="modal__head">
+          <h2>Keeper&apos;s Guide</h2>
+          <button type="button" className="modal__close" aria-label="Close" onClick={close}>
+            ×
+          </button>
+        </header>
+
+        <p className="guide__lede">
+          How to keep the cash flowing and every creature thriving — written for
+          Wildhaven&apos;s real systems, not wishful thinking.
+        </p>
+
+        <nav className="guide__nav" aria-label="Guide sections">
+          {SECTIONS.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className={section === s.id ? "guide__chip guide__chip--on" : "guide__chip"}
+              onClick={() => setSection(s.id)}
+            >
+              <span aria-hidden>{s.icon}</span> {s.title}
+            </button>
+          ))}
+        </nav>
+
+        <div className="guide__body">{CONTENT[section]}</div>
+      </div>
+    </div>
+  );
+}
+
+const CONTENT: Record<SectionId, ReactNode> = {
+  start: (
+    <>
+      <h3>Open strong, spend slow</h3>
+      <ol className="guide__list">
+        <li>
+          You start with a demo park and a healthy balance. <strong>Pause (⏸)</strong> if
+          you need a breath — bills still wait for the next day, but nothing drifts while
+          you plan.
+        </li>
+        <li>
+          Click an animal to read its welfare bars. Red bars are jobs for you; green means
+          leave them alone for now.
+        </li>
+        <li>
+          Fix the flamingos in Mirror Lagoon first — they&apos;re hungry and under-social.
+          Add more flamingos (Animals tab) and enrichment (Scenery tab → pool items).
+        </li>
+        <li>
+          Open <strong>Finances</strong> (click Balance) and glance at today&apos;s costs
+          before buying a second elephant.
+        </li>
+      </ol>
+      <p className="guide__tip">
+        Rule of thumb: never spend more than ~30% of your cash on a single animal or
+        building spree.
+      </p>
+    </>
+  ),
+
+  money: (
+    <>
+      <h3>Where money comes from</h3>
+      <ul className="guide__list">
+        <li>
+          <strong>Tickets</strong> — guests enter and pay your ticket price. Higher appeal
+          (happy, interesting animals) draws more people. Tickets above ~$18 slowly scare
+          guests away; below that packs the park but earns less per head.
+        </li>
+        <li>
+          <strong>Shops</strong> — food stalls, drink stalls, and gift shops earn when
+          guests visit them. Place them on paths near habitats. Hire Vendors so queues
+          don&apos;t kill takings.
+        </li>
+        <li>
+          <strong>Donations</strong> — grow with guest happiness and Info Boards. Cheap
+          conservation points, literally.
+        </li>
+      </ul>
+      <h3>Where money goes</h3>
+      <ul className="guide__list">
+        <li>
+          <strong>Food</strong> — every animal has a daily food bill. Big carnivores and
+          elephants eat your margin.
+        </li>
+        <li>
+          <strong>Staff wages</strong> — keepers, vets, vendors, mechanics. Hire what you
+          need; idle payroll is silent bankruptcy.
+        </li>
+        <li>
+          <strong>Upkeep</strong> — every placed building costs a little each day. Fence
+          spam and unused stalls add up.
+        </li>
+        <li>
+          <strong>Capital</strong> — one-off buys (animals, buildings, hires). These hit
+          cash immediately.
+        </li>
+      </ul>
+      <p className="guide__tip">
+        If Balance turns red or you see a bankruptcy toast: pause, raise ticket a notch
+        (or lower if the park is empty), sell nothing — instead stop hiring, demolish
+        unused stalls, and feed welfare so appeal recovers.
+      </p>
+    </>
+  ),
+
+  animals: (
+    <>
+      <h3>Welfare is survival</h3>
+      <p>
+        Each animal scores 0–100 from biome, climate, space, social group, enrichment,
+        hunger, and health. Hunger and health weigh heaviest — ignore them and the rest
+        won&apos;t save the animal.
+      </p>
+      <ul className="guide__list">
+        <li>
+          <strong>Hunger</strong> — keepers feed animals. No keepers → hunger collapses →
+          welfare tanks → guests stop coming.
+        </li>
+        <li>
+          <strong>Health</strong> — hire a vet before sickness spreads. Low health animals
+          need attention now, not tomorrow.
+        </li>
+        <li>
+          <strong>Social</strong> — check the species card. Lions want a pride; a lonely
+          tiger is fine; overcrowding hurts too. Match social min/max.
+        </li>
+        <li>
+          <strong>Enrichment</strong> — place the exact toys they need (ball, scent/log,
+          climb, pool, nest) inside the fence. Partial matches only half-score.
+        </li>
+        <li>
+          <strong>Biome</strong> — wrong biome caps welfare hard (~35). Savanna animals
+          in forest habitats will never thrive.
+        </li>
+      </ul>
+      <p className="guide__tip">
+        Click the animal → read the red bars → fix those first. Camera focus helps you
+        find the enclosure in 3D.
+      </p>
+    </>
+  ),
+
+  habitats: (
+    <>
+      <h3>Enclosure checklist</h3>
+      <ol className="guide__list">
+        <li>
+          Ring a closed fence (Habitat tools → Fence), drop a Gate on one side, then use
+          Habitat / paint tools so the game recognizes the interior.
+        </li>
+        <li>
+          Set the habitat biome to match the species before adopting (biome chips in the
+          Habitat build strip).
+        </li>
+        <li>
+          Give enough area — large/huge animals need big footprints. Crowding tanks the
+          Space bar even if the fence looks fine.
+        </li>
+        <li>
+          Drop enrichment <em>inside</em> the ring. Water features and pools count for
+          wallowing species.
+        </li>
+        <li>
+          Add a Viewing Gallery or path along the fence so guests can see the animals —
+          appeal needs eyeballs.
+        </li>
+      </ol>
+      <p className="guide__tip">
+        One solid habitat beats three half-finished ones. Finish welfare before expanding.
+      </p>
+    </>
+  ),
+
+  staff: (
+    <>
+      <h3>Who to hire when</h3>
+      <ul className="guide__list">
+        <li>
+          <strong>Zookeeper</strong> ($400 hire / $120 day) — mandatory once you have
+          animals. Feeding, cleaning, enrichment refresh.
+        </li>
+        <li>
+          <strong>Veterinarian</strong> ($700 / $180) — hire when health dips or you run
+          expensive endangered species.
+        </li>
+        <li>
+          <strong>Vendor</strong> ($250 / $90) — after you place stalls. Shops without
+          vendors underperform.
+        </li>
+        <li>
+          <strong>Mechanic</strong> ($350 / $110) — when fences and facilities start
+          wearing down (condition decays each day).
+        </li>
+      </ul>
+      <p className="guide__tip">
+        Two keepers for a growing park is usually smarter than one keeper and an early
+        second vet.
+      </p>
+    </>
+  ),
+
+  guests: (
+    <>
+      <h3>Make the park worth the ticket</h3>
+      <ul className="guide__list">
+        <li>
+          Paths from the entrance to every habitat. Guests walk paths — if they can&apos;t
+          reach a view, they don&apos;t pay at shops either.
+        </li>
+        <li>
+          Food + drink near popular exhibits. Gift shop for surplus happiness spend.
+        </li>
+        <li>
+          Toilets and benches keep happiness from rotting while they queue.
+        </li>
+        <li>
+          Info Boards boost donations. Cheap win once the park is walking.
+        </li>
+        <li>
+          High animal welfare → higher appeal → more guests → more ticket + shop income.
+          Welfare is your marketing budget.
+        </li>
+      </ul>
+      <p className="guide__tip">
+        Sweet spot ticket price starts around <strong>$18</strong>. Nudge up only when
+        appeal and welfare are strong; nudge down if guest count collapses.
+      </p>
+    </>
+  ),
+};

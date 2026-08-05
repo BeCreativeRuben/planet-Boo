@@ -23,6 +23,7 @@ import BuildBar from "./BuildBar";
 import AnimalPanel, { FactorBar, toneFor } from "./AnimalPanel";
 import Notifications from "./Notifications";
 import FinancePanel from "./FinancePanel";
+import GuidePanel from "./GuidePanel";
 
 const money = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
@@ -44,6 +45,7 @@ export default function HUD() {
       </div>
 
       <FinancePanel />
+      <GuidePanel />
     </div>
   );
 }
@@ -78,6 +80,7 @@ function TopBar() {
   const setSpeed = useGameStore((s) => s.setSpeed);
   const setPaused = useGameStore((s) => s.setPaused);
   const toggleFinance = useUIStore((s) => s.toggleFinance);
+  const toggleGuide = useUIStore((s) => s.toggleGuide);
 
   const appeal = parkAppeal(animals);
   const welfare = Math.round(stats.averageAnimalWelfare);
@@ -129,6 +132,14 @@ function TopBar() {
       </div>
 
       <div className="topbar__controls">
+        <button
+          type="button"
+          className="ctrl"
+          onClick={toggleGuide}
+          title="Keeper's Guide — money & animal care"
+        >
+          ?
+        </button>
         <button
           type="button"
           className={paused ? "ctrl ctrl--play" : "ctrl"}

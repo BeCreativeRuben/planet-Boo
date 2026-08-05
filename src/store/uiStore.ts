@@ -29,21 +29,26 @@ export interface UIStore {
   activeTab: BuildTab | null;
   /** Finance modal visibility. */
   financeOpen: boolean;
+  /** Keeper's Guide modal visibility. */
+  guideOpen: boolean;
   /** Ids of derived notifications the player has dismissed this session. */
   dismissed: string[];
 
   setActiveTab: (tab: BuildTab | null) => void;
   toggleFinance: () => void;
+  toggleGuide: () => void;
   dismissNotification: (id: string) => void;
 }
 
 export const useUIStore = create<UIStore>((set) => ({
   activeTab: null,
   financeOpen: false,
+  guideOpen: false,
   dismissed: [],
 
   setActiveTab: (tab) => set((s) => ({ activeTab: s.activeTab === tab ? null : tab })),
-  toggleFinance: () => set((s) => ({ financeOpen: !s.financeOpen })),
+  toggleFinance: () => set((s) => ({ financeOpen: !s.financeOpen, guideOpen: false })),
+  toggleGuide: () => set((s) => ({ guideOpen: !s.guideOpen, financeOpen: false })),
   dismissNotification: (id) =>
     set((s) => (s.dismissed.includes(id) ? {} : { dismissed: [...s.dismissed, id] })),
 }));
