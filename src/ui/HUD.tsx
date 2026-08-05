@@ -14,6 +14,7 @@
 import { getSpecies } from "../game/species";
 import { getBuilding } from "../game/buildings";
 import { getStaffRole } from "../game/staffTypes";
+import { ledgerNet } from "../game/economy";
 import type { BuildTool } from "../game/types";
 import { useGameStore } from "../store/gameStore";
 import { useUIStore, type BuildTab } from "../store/uiStore";
@@ -27,6 +28,14 @@ import GuidePanel from "./GuidePanel";
 
 const money = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
+/** Signed currency for net, e.g. +$1,240 / -$320 */
+function moneySigned(n: number): string {
+  const r = Math.round(n);
+  const abs = `$${Math.abs(r).toLocaleString()}`;
+  if (r > 0) return `+${abs}`;
+  if (r < 0) return `-${abs}`;
+  return abs;
+}
 export default function HUD() {
   const activeTab = useUIStore((s) => s.activeTab);
 
@@ -71,6 +80,7 @@ function stars(rating: number): string {
 
 function TopBar() {
   const cash = useGameStore((s) => s.finances.cash);
+  const today = useGameStore((s) => s.finances.today);
   const day = useGameStore((s) => s.day);
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const stats = useGameStore((s) => s.stats);
@@ -85,6 +95,8 @@ function TopBar() {
   const appeal = parkAppeal(animals);
   const welfare = Math.round(stats.averageAnimalWelfare);
   const rating = Math.round(stats.rating);
+  const net = ledgerNet(today);
+  const netColor = net > 0 ? "#5fc07a" : net < 0 ? "#e0655a" : undefined;
 
   return (
     <div className="topbar glass">
@@ -102,6 +114,17 @@ function TopBar() {
       >
         <span className="stat__label">Balance</span>
         <span className="stat__value">{money(cash)}</span>
+      </div>
+
+      <div
+        className="stat stat--net stat--clickable"
+        onClick={toggleFinance}
+        title="Today's net profit / loss — open finances"
+      >
+        <span className="stat__label">Net today</span>
+        <span className="stat__value" style={{ color: netColor }}>
+          {moneySigned(net)}
+        </span>
       </div>
 
       <div className="stat">
