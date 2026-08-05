@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Golden-hour savanna at Wildhaven">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe6a8"/>
+      <stop offset="0.32" stop-color="#f7b85f"/>
+      <stop offset="0.58" stop-color="#e08a45"/>
+      <stop offset="1" stop-color="#9a5a34"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff7df"/>
+      <stop offset="0.5" stop-color="#ffe08f"/>
+      <stop offset="1" stop-color="#ffcf6a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hill1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7a7a3c"/>
+      <stop offset="1" stop-color="#4f5a2c"/>
+    </linearGradient>
+    <linearGradient id="hill2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3f4a26"/>
+      <stop offset="1" stop-color="#28351d"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#sky)"/>
+  <circle cx="1120" cy="300" r="360" fill="url(#sun)"/>
+  <circle cx="1120" cy="300" r="120" fill="#fff3d0" opacity="0.9"/>
+
+  <!-- distant hills -->
+  <path d="M0 560 Q 300 480 620 545 T 1180 540 T 1600 560 V900 H0 Z" fill="url(#hill1)" opacity="0.85"/>
+  <!-- foreground ground -->
+  <path d="M0 640 Q 400 600 820 650 T 1600 640 V900 H0 Z" fill="url(#hill2)"/>
+
+  <!-- acacia tree silhouette -->
+  <g fill="#1c2414">
+    <path d="M300 660 L292 470 Q 292 452 306 452 Q 320 452 320 470 L312 660 Z"/>
+    <path d="M306 470 C 220 452 168 430 120 452 C 190 456 230 468 300 476 Z"/>
+    <path d="M306 466 C 400 448 452 428 500 452 C 430 456 388 466 312 476 Z"/>
+    <ellipse cx="306" cy="446" rx="210" ry="34"/>
+  </g>
+
+  <!-- giraffe silhouettes -->
+  <g fill="#20180f">
+    <path d="M1000 700 L1006 610 Q 1010 588 1024 588 L1050 570 L1058 560 L1064 566 L1058 578 L1040 596 L1042 700 L1032 700 L1030 640 L1018 700 Z"/>
+    <path d="M1080 705 L1086 620 Q 1090 600 1104 600 L1128 584 L1136 574 L1142 580 L1136 592 L1120 608 L1122 705 L1112 705 L1110 648 L1098 705 Z"/>
+  </g>
+
+  <!-- grass tufts -->
+  <g stroke="#141c0e" stroke-width="4" stroke-linecap="round" opacity="0.9">
+    <path d="M120 760 q 6 -30 0 -50 M132 760 q 10 -26 22 -40 M108 760 q -6 -24 -18 -36"/>
+    <path d="M1420 720 q 6 -30 0 -50 M1432 720 q 10 -26 22 -40 M1408 720 q -6 -24 -18 -36"/>
+    <path d="M700 800 q 8 -34 0 -56 M714 800 q 12 -28 26 -44 M686 800 q -8 -26 -22 -40"/>
+  </g>
+</svg>
