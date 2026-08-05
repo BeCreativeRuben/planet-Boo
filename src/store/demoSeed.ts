@@ -153,6 +153,8 @@ function makeBuildingAtCell(
     condition: 86 + Math.floor(Math.random() * 12),
     salesToday: 0,
     customersToday: 0,
+    salesLifetime: 0,
+    customersLifetime: 0,
   };
 }
 

@@ -224,6 +224,10 @@ export interface Building {
   salesToday?: number;
   /** Guest transactions served today (shops / stalls only). */
   customersToday?: number;
+  /** All-time revenue since placement (shops / stalls only). */
+  salesLifetime?: number;
+  /** All-time guest transactions since placement (shops / stalls only). */
+  customersLifetime?: number;
 }
 
 /* -------------------------------------------------------------------------- */
