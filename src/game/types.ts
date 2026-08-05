@@ -194,6 +194,20 @@ export interface Guest {
   wallet: number;
   /** Seconds of park time remaining before the guest leaves. */
   patience: number;
+  /** Shared id for family / friend groups that arrived together. */
+  groupId: string;
+  /** Adult or child (affects size, speed, ticket feel). */
+  kind: "adult" | "child";
+  /** True for the group member who picks destinations. */
+  leader: boolean;
+  /** Facing yaw in radians (look direction). */
+  facing: number;
+  /** Current activity — stroll or stop-and-look at animals. */
+  activity: "walk" | "view";
+  /** Seconds remaining in a viewing stop. */
+  viewTimer: number;
+  /** Habitat being watched while viewing. */
+  viewHabitatId?: string;
 }
 
 export interface Litter {

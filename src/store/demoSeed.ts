@@ -15,9 +15,9 @@ import {
   collectFenceCells,
   floodFillEnclosure,
   footprintCenter,
-  spawnGuest,
   worldToCell,
 } from "../game/simulation";
+import { spawnGuestParty } from "../game/guests";
 import { lifespanForSpecies, spawnAgeForLifespan } from "../game/care";
 import { useGameStore } from "./gameStore";
 
@@ -329,15 +329,25 @@ export function seedDemoParkIfEmpty(): boolean {
     staff[m.id] = m;
   });
 
-  // Guests along the open central path (south of the park centre).
+  // Guest parties already exploring — families and couples near the habitats.
   const guests: Record<string, Guest> = {};
-  for (let i = 0; i < 36; i++) {
-    const g = spawnGuest(uid("g"), i, {
-      x: (Math.random() - 0.5) * 8,
-      z: 8 + Math.random() * 12,
-    });
-    g.happiness = 60 + Math.random() * 35;
-    guests[g.id] = g;
+  let guestIndex = 0;
+  for (let p = 0; p < 12; p++) {
+    const entrance = {
+      x: (Math.random() - 0.5) * 10,
+      z: 6 + Math.random() * 14,
+    };
+    const party = spawnGuestParty(entrance, () => uid("g"), guestIndex);
+    for (const g of party) {
+      g.happiness = 62 + Math.random() * 30;
+      // Scatter a bit so they aren't all still at the entrance.
+      if (Math.random() < 0.55) {
+        g.activity = "view";
+        g.viewTimer = 3 + Math.random() * 8;
+      }
+      guests[g.id] = g;
+      guestIndex++;
+    }
   }
 
   const welfares = Object.values(animals).map((a) => a.welfare);

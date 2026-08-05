@@ -1,10 +1,8 @@
 /**
  * Wildhaven — guests layer.
  *
- * Small capsule people strolling the paths, each with a randomly varied
- * clothing colour and a subtle walking bob. Like the animals layer, this only
- * re-renders when the guest population changes; positions are read live inside
- * useFrame for performance with a crowd.
+ * Capsule people who stroll in families, pause to watch animals, and face
+ * their look direction. Positions / facing are read live in useFrame.
  */
 
 import { useRef } from "react";
@@ -35,12 +33,22 @@ function GuestMesh({ id }: { id: string }) {
     if (!guest) return;
     g.position.x = guest.position.x;
     g.position.z = guest.position.z;
+    // Facing is atan2(dx, dz) — match Three.js Y rotation.
+    g.rotation.y = guest.facing ?? 0;
     const t = state.clock.elapsedTime;
-    g.position.y = Math.abs(Math.sin(t * 6 + phase)) * 0.05;
+    const viewing = guest.activity === "view";
+    // Quiet bob while watching; walk bob while moving.
+    g.position.y = viewing
+      ? Math.sin(t * 1.6 + phase) * 0.012
+      : Math.abs(Math.sin(t * 5.2 + phase)) * 0.05;
   });
 
+  const guest = useGameStore.getState().guests[id];
+  const child = guest?.kind === "child";
+  const scale = child ? 0.72 : 1;
+
   return (
-    <group ref={ref} raycast={placing ? () => {} : undefined}>
+    <group ref={ref} scale={scale} raycast={placing ? () => {} : undefined}>
       {/* legs */}
       <mesh position={[0, 0.28, 0]} castShadow>
         <cylinderGeometry args={[0.14, 0.14, 0.56, 6]} />
