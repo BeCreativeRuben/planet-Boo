@@ -148,6 +148,12 @@ export default function BuildBar({ tab }: { tab: BuildTab }) {
         </div>
       )}
 
+      {tab === "animals" && (
+        <p className="buildbar__hint">
+          Select a species, then click a highlighted matching-biome habitat to adopt it.
+        </p>
+      )}
+
       <div className="buildbar__strip">
         {tab === "habitat" && (
           <button
@@ -176,7 +182,7 @@ export default function BuildBar({ tab }: { tab: BuildTab }) {
                   type="button"
                   className={`item${armed ? " item--on" : ""}${poor ? " item--poor" : ""}`}
                   onClick={() => selectSpecies(id)}
-                  title={`${s.description} · Needs ${s.biome}`}
+                  title={`${s.description} · Needs ${s.biome} · Click a matching habitat to adopt`}
                 >
                   <span className="item__icon" aria-hidden>
                     {s.icon}

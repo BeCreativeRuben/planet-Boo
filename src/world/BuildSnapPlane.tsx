@@ -26,7 +26,8 @@ import {
   footprintCenter,
 } from "../game/simulation";
 import { getBuilding } from "../game/buildings";
-import type { Vec2 } from "../game/types";
+import { getSpecies } from "../game/species";
+import type { Habitat, Vec2 } from "../game/types";
 
 function cellFromPoint(point: THREE.Vector3, plotSize: number): Vec2 | null {
   const cx = worldToCell(point.x);
@@ -115,8 +116,13 @@ export function BuildSnapPlane() {
   const startCell = useRef<Vec2 | null>(null);
   const reorientedStart = useRef(false);
 
-  if (!active || tool === "none" || tool === "delete" || tool === "animal") {
+  if (!active || tool === "none" || tool === "delete") {
     return null;
+  }
+
+  // Animal adopt: click inside a matching habitat to buy & place.
+  if (tool === "animal") {
+    return <AnimalSnapPlane plotSize={plotSize} />;
   }
 
   // Claim tool: click inside a closed fence to register a habitat.
@@ -270,6 +276,101 @@ function SnapCellHighlight() {
       <planeGeometry args={[0.96, 0.96]} />
       <meshBasicMaterial color={color} transparent opacity={0.45} depthWrite={false} />
     </mesh>
+  );
+}
+
+/** Find a habitat whose world-space bounds contain a point. */
+function habitatAtWorld(
+  habitats: Record<string, Habitat>,
+  x: number,
+  z: number,
+): Habitat | null {
+  for (const h of Object.values(habitats)) {
+    if (
+      x >= h.bounds.min.x &&
+      x < h.bounds.max.x &&
+      z >= h.bounds.min.z &&
+      z < h.bounds.max.z
+    ) {
+      return h;
+    }
+  }
+  return null;
+}
+
+function canAdoptInto(speciesId: string, habitat: Habitat, cash: number): boolean {
+  const def = getSpecies(speciesId);
+  if (!def) return false;
+  if (cash < def.cost) return false;
+  if (habitat.biome !== def.biome) return false;
+  if (habitat.speciesId && habitat.speciesId !== def.id) return false;
+  return true;
+}
+
+/** Click inside a habitat to buy & place the selected species. */
+function AnimalSnapPlane({ plotSize }: { plotSize: number }) {
+  const controls = useThree((s) => s.controls) as { enabled?: boolean } | null;
+
+  const syncHover = (point: THREE.Vector3 | null) => {
+    const store = useGameStore.getState();
+    const speciesId = store.build.selectedSpeciesId;
+    if (!point || !speciesId) {
+      store.setHoverCell(null);
+      store.setBuildMode({ valid: false });
+      return;
+    }
+    const cell = cellFromPoint(point, plotSize);
+    const habitat = habitatAtWorld(store.habitats, point.x, point.z);
+    const valid = !!habitat && canAdoptInto(speciesId, habitat, store.finances.cash);
+    store.setHoverCell(cell);
+    store.setBuildMode({ valid });
+  };
+
+  const onPointerMove = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    syncHover(e.point);
+  };
+
+  const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    const store = useGameStore.getState();
+    const speciesId = store.build.selectedSpeciesId;
+    if (!speciesId) return;
+    const habitat = habitatAtWorld(store.habitats, e.point.x, e.point.z);
+    if (!habitat || !canAdoptInto(speciesId, habitat, store.finances.cash)) {
+      syncHover(e.point);
+      return;
+    }
+    if (controls && "enabled" in controls) controls.enabled = false;
+    store.addAnimalToHabitat(speciesId, habitat.id, { x: e.point.x, z: e.point.z });
+    store.selectEntity({ kind: "habitat", id: habitat.id });
+    // Refresh validity after cash spend.
+    syncHover(e.point);
+  };
+
+  const onPointerUp = () => {
+    if (controls && "enabled" in controls) controls.enabled = true;
+  };
+
+  return (
+    <group>
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0.04, 0]}
+        onPointerMove={onPointerMove}
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
+        onPointerOut={() => {
+          useGameStore.getState().setHoverCell(null);
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <planeGeometry args={[plotSize, plotSize]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
+      <SnapCellHighlight />
+    </group>
   );
 }
 

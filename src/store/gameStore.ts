@@ -162,7 +162,7 @@ export interface ZooStore extends GameState {
   placeBuilding: (defId: string, cell: Vec2, rotation?: number) => void;
   demolish: (instanceId: string) => void;
   createHabitat: (seed: Vec2, opts?: CreateHabitatOpts) => string | null;
-  addAnimalToHabitat: (speciesId: string, habitatId: string) => void;
+  addAnimalToHabitat: (speciesId: string, habitatId: string, at?: Vec2) => void;
   hireStaff: (role: StaffRole) => void;
   /** Expand the owned plot by PLOT_STEP if affordable. Returns false if blocked. */
   buyLand: () => boolean;
@@ -633,7 +633,7 @@ export const useGameStore = create<ZooStore>((set, get) => ({
     });
   },
 
-  addAnimalToHabitat: (speciesId, habitatId) => {
+  addAnimalToHabitat: (speciesId, habitatId, at) => {
     const s = get();
     const def = SPECIES_BY_ID[speciesId];
     const habitat = s.habitats[habitatId];
@@ -643,12 +643,22 @@ export const useGameStore = create<ZooStore>((set, get) => ({
     const id = uid("a");
     const cx = (habitat.bounds.min.x + habitat.bounds.max.x) / 2;
     const cz = (habitat.bounds.min.z + habitat.bounds.max.z) / 2;
+    const pad = 0.6;
+    const clampIn = (v: number, lo: number, hi: number) =>
+      Math.min(hi - pad, Math.max(lo + pad, v));
+    const position: Vec2 = at
+      ? {
+          x: clampIn(at.x, habitat.bounds.min.x, habitat.bounds.max.x),
+          z: clampIn(at.z, habitat.bounds.min.z, habitat.bounds.max.z),
+        }
+      : { x: cx + (Math.random() - 0.5) * 4, z: cz + (Math.random() - 0.5) * 4 };
+
     const animal: Animal = {
       id,
       speciesId,
       name: NAMES[Math.floor(Math.random() * NAMES.length)],
       habitatId,
-      position: { x: cx + (Math.random() - 0.5) * 4, z: cz + (Math.random() - 0.5) * 4 },
+      position,
       age: 120 + Math.floor(Math.random() * 300),
       lifespan: 500,
       sex: Math.random() < 0.5 ? "male" : "female",

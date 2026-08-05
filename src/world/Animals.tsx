@@ -63,7 +63,8 @@ function AnimalMesh({ id }: { id: string }) {
       (s.build.tool === "place" ||
         s.build.tool === "fence" ||
         s.build.tool === "gate" ||
-        s.build.tool === "claim"),
+        s.build.tool === "claim" ||
+        s.build.tool === "animal"),
   );
 
   const ringR = 0.7 * scale;

@@ -24,7 +24,8 @@ function GuestMesh({ id }: { id: string }) {
       (s.build.tool === "place" ||
         s.build.tool === "fence" ||
         s.build.tool === "gate" ||
-        s.build.tool === "claim"),
+        s.build.tool === "claim" ||
+        s.build.tool === "animal"),
   );
 
   useFrame((state) => {
