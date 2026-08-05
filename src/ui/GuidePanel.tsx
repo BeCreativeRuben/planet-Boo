@@ -72,8 +72,9 @@ const CONTENT: Record<SectionId, ReactNode> = {
           you plan.
         </li>
         <li>
-          Click an animal to read its welfare bars. Red bars are jobs for you; green means
-          leave them alone for now.
+          Click an animal to read its welfare bars, or open the <strong>Animal
+          overview</strong> (🐾 or click Welfare) to see every creature at once.
+          Red bars are jobs for you; green means leave them alone for now.
         </li>
         <li>
           Fix the flamingos in Mirror Lagoon first — they&apos;re hungry and under-social.
