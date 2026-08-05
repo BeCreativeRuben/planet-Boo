@@ -21,6 +21,7 @@ Deep-link straight into the park: `http://localhost:5173/#play`
 - **Habitat welfare** — biome, temperature, humidity, space, social needs, enrichment, hunger, health
 - **Build tools** — fences, gates, paths, enrichment, guest amenities, staff facilities
 - **Guests & economy** — ticket sales, shops, staff wages, daily settlement, conservation points
+- **Day / night** — ~15-minute cycles; daytime visitors, nighttime maintenance (speed up to skip)
 - **3D park** — orbit camera, day cycle, low-poly animals, walking guests
 - **Demo park** — opens with starter habitats so you can explore immediately
 

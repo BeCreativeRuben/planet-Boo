@@ -21,6 +21,12 @@ import {
   transactionRevenue,
   vendorBoost,
 } from "../game/economy";
+import {
+  getDayPhase,
+  isNightPhase,
+  phaseHint,
+  phaseLabel,
+} from "../game/dayCycle";
 import type { BuildTool } from "../game/types";
 import { useGameStore } from "../store/gameStore";
 import { useUIStore, type BuildTab } from "../store/uiStore";
@@ -49,6 +55,7 @@ export default function HUD() {
   return (
     <div className="hud">
       <TopBar />
+      <PhaseBanner />
 
       <div className="hud__mid">
         <Inspector />
@@ -73,17 +80,23 @@ export default function HUD() {
 
 const SPEEDS = [1, 2, 3];
 
-function dayPhase(t: number): string {
-  if (t < 0.23) return "Night";
-  if (t < 0.34) return "Dawn";
-  if (t < 0.68) return "Midday";
-  if (t < 0.82) return "Dusk";
-  return "Night";
-}
-
 function stars(rating: number): string {
   const filled = Math.max(0, Math.min(5, Math.round(rating)));
   return "★".repeat(filled) + "☆".repeat(5 - filled);
+}
+
+function PhaseBanner() {
+  const timeOfDay = useGameStore((s) => s.timeOfDay);
+  const phase = getDayPhase(timeOfDay);
+  if (!isNightPhase(phase)) return null;
+  return (
+    <div className="phase-banner glass" role="status">
+      <span className="phase-banner__title">Night maintenance</span>
+      <span className="phase-banner__hint">
+        Guests have gone home — build freely, or speed up (2× / 3×) to skip to dawn.
+      </span>
+    </div>
+  );
 }
 
 function TopBar() {
@@ -106,6 +119,7 @@ function TopBar() {
   const rating = Math.round(stats.rating);
   const net = ledgerNet(today);
   const netColor = net > 0 ? "#5fc07a" : net < 0 ? "#e0655a" : undefined;
+  const phase = getDayPhase(timeOfDay);
 
   return (
     <div className="topbar glass">
@@ -136,8 +150,10 @@ function TopBar() {
         </span>
       </div>
 
-      <div className="stat">
-        <span className="stat__label">Day · {dayPhase(timeOfDay)}</span>
+      <div className="stat" title={phaseHint(phase)}>
+        <span className="stat__label">
+          Day · {phaseLabel(phase)}
+        </span>
         <span className="stat__value">{day}</span>
       </div>
 

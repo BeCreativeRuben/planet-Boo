@@ -81,6 +81,11 @@ const CONTENT: Record<SectionId, ReactNode> = {
           Add more flamingos (Animals tab) and enrichment (Scenery tab → pool items).
         </li>
         <li>
+          A full day/night cycle lasts about <strong>15 minutes</strong> at 1×. Daytime
+          brings guests; night closes the gates for maintenance and building. Use
+          <strong> 2× / 3×</strong> if you want to skip the night.
+        </li>
+        <li>
           Open <strong>Finances</strong> (click Balance) and glance at today&apos;s costs
           before buying a second elephant.
         </li>
@@ -262,6 +267,11 @@ const CONTENT: Record<SectionId, ReactNode> = {
         <li>
           High animal welfare → higher appeal → more guests → more ticket + shop income.
           Welfare is your marketing budget.
+        </li>
+        <li>
+          <strong>Park hours</strong> — guests arrive through the day and clear out at
+          dusk. Shops close at night; keepers and mechanics work faster while the park
+          is empty. Speed up overnight if you&apos;d rather jump to dawn.
         </li>
       </ul>
       <p className="guide__tip">

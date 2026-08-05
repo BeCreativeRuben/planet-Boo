@@ -323,22 +323,31 @@ export function deathMessage(d: AnimalDeath): { title: string; message: string }
 /**
  * Mid-day care pulse (runs with the welfare interval after hunger drain).
  * Keepers feed, vets heal, starvation bites, deaths are collected.
+ * `careMult` > 1 speeds work during the night maintenance shift.
  */
 export function applyCarePulse(
   animals: Record<string, Animal>,
   habitats: Record<string, Habitat>,
   staff: Record<string, Staff>,
   buildings: Record<string, Building>,
+  careMult = 1,
 ): CareResult {
   let nextStaff = assignStaffTargets(staff, habitats);
-  let fed = applyFeeding(animals, habitats, nextStaff, buildings, KEEPER_FEED_PULSE, KEEPER_CLEAN_PULSE);
-  let healed = applyHealing(fed.animals, fed.staff, buildings, VET_HEAL_PULSE);
+  let fed = applyFeeding(
+    animals,
+    habitats,
+    nextStaff,
+    buildings,
+    KEEPER_FEED_PULSE * careMult,
+    KEEPER_CLEAN_PULSE * careMult,
+  );
+  let healed = applyHealing(fed.animals, fed.staff, buildings, VET_HEAL_PULSE * careMult);
   const starved = applyStarvationEffects(healed.animals, "pulse");
   const deaths = collectDeaths(starved);
   const purged = purgeDeaths(starved, fed.habitats, deaths);
 
   // Tiny energy recovery between pulses so staff don't permanently deplete.
-  nextStaff = recoverStaffEnergy(healed.staff, 1.2);
+  nextStaff = recoverStaffEnergy(healed.staff, 1.2 * Math.max(1, careMult * 0.85));
 
   return {
     animals: purged.animals,

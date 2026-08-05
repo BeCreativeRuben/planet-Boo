@@ -38,6 +38,16 @@ import {
   type AnimalDeath,
 } from "../game/care";
 import { BUILDINGS_BY_ID, getBuilding } from "../game/buildings";
+import {
+  DAY_LENGTH_SECONDS,
+  HUNGER_DRAIN_PER_DAY,
+  NIGHT_CARE_MULT,
+  NIGHT_REPAIR_MULT,
+  getDayPhase,
+  guestArrivalFactor,
+  guestLeaveFactor,
+  isNightPhase,
+} from "../game/dayCycle";
 import { SPECIES_BY_ID } from "../game/species";
 import { getStaffRole } from "../game/staffTypes";
 import { computeWelfare } from "../game/welfare";
@@ -82,8 +92,6 @@ import {
 /*  Tunables                                                                  */
 /* -------------------------------------------------------------------------- */
 
-/** Real seconds per in-game day at speed ×1. */
-const DAY_LENGTH_SECONDS = 90;
 /** Hard cap on concurrent guests, for render performance. */
 const MAX_GUESTS = 110;
 /** How often (in ticks) to recompute welfare / needs. */
@@ -428,18 +436,17 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       rolled = true;
     }
 
-    // --- animals: wander + periodic needs / keeper care / death ------------
+    // --- animals: wander + continuous hunger / keeper care / death ---------
+    const phase = getDayPhase(timeOfDay);
+    const night = isNightPhase(phase);
+    const hungerDrain = HUNGER_DRAIN_PER_DAY * 100 * dayFrac;
     const doWelfare = tick % WELFARE_INTERVAL === 0;
     let animals: Record<string, Animal> = {};
     for (const a of Object.values(s.animals)) {
       const habitat = a.habitatId ? s.habitats[a.habitatId] : undefined;
       const position = wanderAnimal(a, habitat, sdt);
-      let next: Animal = { ...a, position };
-      if (doWelfare && habitat) {
-        const hunger = clamp(a.hunger - 0.5, 0, 100);
-        next = { ...next, hunger };
-      }
-      animals[a.id] = next;
+      const hunger = clamp(a.hunger - hungerDrain, 0, 100);
+      animals[a.id] = { ...a, position, hunger };
     }
 
     let habitats = s.habitats;
@@ -447,9 +454,11 @@ export const useGameStore = create<ZooStore>((set, get) => ({
     let deathNotices = s.deathNotices;
     let selection = s.selection;
     let focusAnimalId = s.focusAnimalId;
+    let buildings: Record<string, Building> = { ...s.buildings };
 
     if (doWelfare) {
-      const cared = applyCarePulse(animals, habitats, staff, s.buildings);
+      const careMult = night ? NIGHT_CARE_MULT : 1;
+      const cared = applyCarePulse(animals, habitats, staff, buildings, careMult);
       animals = refreshWelfareScores(cared.animals, cared.habitats);
       habitats = cared.habitats;
       staff = cared.staff;
@@ -457,6 +466,22 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       const cleared = clearSelectionIfDead(selection, focusAnimalId, cared.deaths);
       selection = cleared.selection;
       focusAnimalId = cleared.focusAnimalId;
+
+      // Night shift: mechanics patch buildings while the park is empty.
+      if (night) {
+        const mechanicCount = Object.values(staff).filter((m) => m.role === "mechanic").length;
+        if (mechanicCount > 0) {
+          const repair = mechanicCount * 0.35 * NIGHT_REPAIR_MULT;
+          const nextBuildings: Record<string, Building> = {};
+          for (const [id, b] of Object.entries(buildings)) {
+            nextBuildings[id] = {
+              ...b,
+              condition: clamp(b.condition + repair, 0, 100),
+            };
+          }
+          buildings = nextBuildings;
+        }
+      }
     }
 
     // --- guests: move, age out, keep happy ---------------------------------
@@ -464,21 +489,25 @@ export const useGameStore = create<ZooStore>((set, get) => ({
     const blockedHabitats = Object.values(habitats).map((h) => h.bounds);
     const appeal = computeAppeal(s);
     const targetHappy = clamp(45 + appeal, 0, 100);
+    const leaveMult = guestLeaveFactor(timeOfDay);
     const guests: Record<string, Guest> = {};
     for (const g of Object.values(s.guests)) {
       const moved = stepGuest(g, waypoints, sdt, blockedHabitats);
-      if (moved.patience <= 0) continue; // guest goes home
+      // stepGuest already drains patience by sdt; scale extra leave at dusk/night.
+      const patience = moved.patience - sdt * (leaveMult - 1);
+      if (patience <= 0) continue; // guest goes home
       const happiness = moved.happiness + (targetHappy - moved.happiness) * 0.4 * sdt;
-      guests[g.id] = { ...moved, happiness: clamp(happiness, 0, 100) };
+      guests[g.id] = { ...moved, patience, happiness: clamp(happiness, 0, 100) };
     }
 
-    // --- guest arrivals ----------------------------------------------------
+    // --- guest arrivals (none at night) ------------------------------------
     const desired = Math.min(MAX_GUESTS, expectedDailyGuests(appeal, s.finances.ticketPrice));
     let guestCount = Object.keys(guests).length;
     let ticketEarned = 0;
-    if (guestCount < desired && waypoints.length > 0) {
-      // Arrival rate scales with how far below the target we are.
-      const rate = (desired - guestCount) * 0.6 * sdt;
+    const arriveMult = guestArrivalFactor(timeOfDay);
+    if (arriveMult > 0 && guestCount < desired && waypoints.length > 0) {
+      // Arrival rate scales with how far below the target we are + park hours.
+      const rate = (desired - guestCount) * 0.6 * sdt * arriveMult;
       if (Math.random() < rate) {
         const g = makeGuest(uid("g"), guestCount, entrancePosition(s));
         guests[g.id] = g;
@@ -495,15 +524,14 @@ export const useGameStore = create<ZooStore>((set, get) => ({
     const vBoost = vendorBoost(vendorCount);
     let shopPerDay = 0;
     let infoBoards = 0;
-    const buildings: Record<string, Building> = { ...s.buildings };
 
-    for (const b of Object.values(s.buildings)) {
+    for (const b of Object.values(buildings)) {
       const def = getBuilding(b.defId);
       if (!def) continue;
       if (b.defId === "info-board") infoBoards++;
       if (!def.revenuePerUse) continue;
 
-      const open = shopOpenFactor(s.timeOfDay, b.condition);
+      const open = shopOpenFactor(timeOfDay, b.condition);
       // Guests-per-day visit rate for this stall at full open.
       const visitsPerDay = guestCount * 0.12 * vBoost;
       const earnPerDay = transactionRevenue(def, avgHappiness) * visitsPerDay * open;
@@ -557,14 +585,10 @@ export const useGameStore = create<ZooStore>((set, get) => ({
 
   advanceDay: () =>
     set((s) => {
-      // Daily hunger drain + ageing first, then keeper/vet care and deaths.
+      // Ageing at day-roll; hunger already drained continuously through the day.
       const aged: Record<string, Animal> = {};
       for (const a of Object.values(s.animals)) {
-        aged[a.id] = {
-          ...a,
-          hunger: clamp(a.hunger - 6, 0, 100),
-          age: a.age + 1,
-        };
+        aged[a.id] = { ...a, age: a.age + 1 };
       }
 
       const cared = applyDailyCare(aged, s.habitats, s.staff, s.buildings);
