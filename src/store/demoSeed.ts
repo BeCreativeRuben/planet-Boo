@@ -151,6 +151,8 @@ function makeBuildingAtCell(
     position: footprintCenter(cell, def, rotation),
     rotation,
     condition: 86 + Math.floor(Math.random() * 12),
+    salesToday: 0,
+    customersToday: 0,
   };
 }
 
