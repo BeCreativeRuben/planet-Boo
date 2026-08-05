@@ -11,6 +11,7 @@
  * (open tab, finance modal) comes from the UI store.
  */
 
+import { useEffect } from "react";
 import { getSpecies } from "../game/species";
 import { getBuilding } from "../game/buildings";
 import { getStaffRole } from "../game/staffTypes";
@@ -58,9 +59,50 @@ function moneySigned(n: number): string {
   if (r < 0) return `-${abs}`;
   return abs;
 }
+
+/** Escape: close overlays first, then build tools, then clear the inspector selection. */
+function useEscapeDismiss() {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const ui = useUIStore.getState();
+      if (ui.landSelectOpen) {
+        ui.closeLandSelect();
+        e.preventDefault();
+        return;
+      }
+      if (ui.financeOpen || ui.guideOpen || ui.animalsOpen || ui.jobsOpen) {
+        ui.closeOverlays();
+        e.preventDefault();
+        return;
+      }
+      const game = useGameStore.getState();
+      if (ui.activeTab || game.build.active || game.build.tool !== "none") {
+        ui.setActiveTab(null);
+        game.setBuildMode({
+          active: false,
+          tool: "none",
+          selectedDefId: undefined,
+          selectedSpeciesId: undefined,
+        });
+        e.preventDefault();
+        return;
+      }
+      if (game.selection || game.focusAnimalId) {
+        game.selectEntity(null);
+        game.focusAnimal(null);
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+}
+
 export default function HUD() {
   const activeTab = useUIStore((s) => s.activeTab);
   const landSelectOpen = useUIStore((s) => s.landSelectOpen);
+  useEscapeDismiss();
 
   return (
     <div className={`hud${landSelectOpen ? " hud--land-survey" : ""}`}>

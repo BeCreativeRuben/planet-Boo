@@ -147,9 +147,16 @@ export default function FinancePanel() {
           <p className="finance__hint">
             {maxed
               ? "You've bought every reachable parcel."
-              : "Expand on a top-down map of the whole park — compass sides and prices are labelled on each plot."}
+              : "Preview only — buy plots on the top-down survey map (compass + prices on each parcel)."}
           </p>
-          <div className="parcel-map parcel-map--preview" role="img" aria-label="Park land overview">
+          <button
+            type="button"
+            className="parcel-map parcel-map--preview"
+            onClick={() => openLandSelect()}
+            disabled={maxed}
+            aria-label={maxed ? "Park land overview" : "Open land survey to buy plots"}
+            title={maxed ? "No more land to buy" : "Open land survey to buy plots"}
+          >
             <span className="parcel-map__edge parcel-map__edge--n">N</span>
             <span className="parcel-map__edge parcel-map__edge--s">S</span>
             <span className="parcel-map__edge parcel-map__edge--w">W</span>
@@ -167,24 +174,12 @@ export default function FinancePanel() {
                       : offer
                         ? "parcel-map__cell parcel-map__cell--buy"
                         : "parcel-map__cell";
-                    return (
-                      <div
-                        key={key}
-                        className={cls}
-                        title={
-                          owned
-                            ? `Owned (${px},${pz})`
-                            : offer
-                              ? `${offer.direction} · ${money(offer.cost)}`
-                              : "Locked"
-                        }
-                      />
-                    );
+                    return <span key={key} className={cls} />;
                   })}
                 </div>
               );
             })}
-          </div>
+          </button>
           {!maxed && (
             <>
               {buyable[0] && (
@@ -193,14 +188,7 @@ export default function FinancePanel() {
                   sits by the entrance
                 </p>
               )}
-              <button
-                type="button"
-                className="btn"
-                onClick={() => {
-                  close();
-                  openLandSelect();
-                }}
-              >
+              <button type="button" className="btn" onClick={() => openLandSelect()}>
                 Survey land on map
               </button>
             </>

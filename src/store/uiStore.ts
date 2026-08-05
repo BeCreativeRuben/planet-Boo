@@ -48,6 +48,8 @@ export interface UIStore {
   toggleJobs: () => void;
   openLandSelect: () => void;
   closeLandSelect: () => void;
+  /** Close finance / guide / animals / jobs / land survey. */
+  closeOverlays: () => void;
   dismissNotification: (id: string) => void;
 }
 
@@ -85,6 +87,7 @@ export const useUIStore = create<UIStore>((set) => ({
   openLandSelect: () =>
     set({ ...closeModals, landSelectOpen: true, activeTab: null }),
   closeLandSelect: () => set({ landSelectOpen: false }),
+  closeOverlays: () => set({ ...closeModals }),
   dismissNotification: (id) =>
     set((s) => (s.dismissed.includes(id) ? {} : { dismissed: [...s.dismissed, id] })),
 }));
