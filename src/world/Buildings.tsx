@@ -625,15 +625,24 @@ function ParkingLotMesh({ def, w, d }: MeshProps) {
   const stallsX = 6;
   const stallsZ = 2;
   const carColors = ["#c45c48", "#3d6a9a", "#d9c56a", "#4a4a52", "#6a8f5a", "#8a5a3a"];
+  // Raised slab so bumpy terrain doesn't swallow the asphalt.
+  const padH = 0.22;
+  const padY = padH / 2;
+  const surfaceY = padH + 0.01;
   return (
     <group>
       {/* Asphalt pad */}
-      <mesh position={[0, 0.03, 0]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[w * 0.98, d * 0.98]} />
+      <mesh position={[0, padY, 0]} receiveShadow castShadow>
+        <boxGeometry args={[w * 0.98, padH, d * 0.98]} />
         {mat(def.color, 0.95)}
       </mesh>
+      {/* Curb / apron */}
+      <mesh position={[0, padH * 0.35, 0]} receiveShadow>
+        <boxGeometry args={[w * 1.02, padH * 0.45, d * 1.02]} />
+        {mat("#4a4e54", 0.92)}
+      </mesh>
       {/* Lane stripe */}
-      <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0, surfaceY, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[0.18, d * 0.85]} />
         {mat("#d9c56a", 0.7)}
       </mesh>
@@ -641,7 +650,7 @@ function ParkingLotMesh({ def, w, d }: MeshProps) {
       {Array.from({ length: stallsX + 1 }, (_, i) => {
         const x = -w * 0.42 + (i / stallsX) * w * 0.84;
         return (
-          <mesh key={`sx-${i}`} position={[x, 0.045, -d * 0.22]} rotation={[-Math.PI / 2, 0, 0]}>
+          <mesh key={`sx-${i}`} position={[x, surfaceY, -d * 0.22]} rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[0.06, d * 0.32]} />
             {mat("#e8e4d8", 0.6)}
           </mesh>
@@ -650,7 +659,7 @@ function ParkingLotMesh({ def, w, d }: MeshProps) {
       {Array.from({ length: stallsX + 1 }, (_, i) => {
         const x = -w * 0.42 + (i / stallsX) * w * 0.84;
         return (
-          <mesh key={`sz-${i}`} position={[x, 0.045, d * 0.22]} rotation={[-Math.PI / 2, 0, 0]}>
+          <mesh key={`sz-${i}`} position={[x, surfaceY, d * 0.22]} rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[0.06, d * 0.32]} />
             {mat("#e8e4d8", 0.6)}
           </mesh>
@@ -663,7 +672,7 @@ function ParkingLotMesh({ def, w, d }: MeshProps) {
         const x = -w * 0.35 + (col / Math.max(1, stallsX - 1)) * w * 0.7;
         const z = row === 0 ? -d * 0.22 : d * 0.22;
         return (
-          <group key={i} position={[x, 0.28, z]}>
+          <group key={i} position={[x, surfaceY + 0.22, z]}>
             <mesh castShadow>
               <boxGeometry args={[0.9, 0.35, 0.45]} />
               {mat(carColors[i % carColors.length]!, 0.55, 0.25)}
@@ -676,7 +685,7 @@ function ParkingLotMesh({ def, w, d }: MeshProps) {
         );
       })}
       {/* Ticket / attendant booth */}
-      <mesh position={[w * 0.38, 0.55, -d * 0.35]} castShadow>
+      <mesh position={[w * 0.38, surfaceY + 0.55, -d * 0.35]} castShadow>
         <boxGeometry args={[0.7, 1.1, 0.7]} />
         {mat("#6a7a4a", 0.85)}
       </mesh>
