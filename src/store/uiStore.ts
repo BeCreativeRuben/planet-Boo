@@ -33,6 +33,8 @@ export interface UIStore {
   guideOpen: boolean;
   /** Animal overview modal visibility. */
   animalsOpen: boolean;
+  /** Jobs / staff roles overview modal visibility. */
+  jobsOpen: boolean;
   /** Ids of derived notifications the player has dismissed this session. */
   dismissed: string[];
 
@@ -40,23 +42,34 @@ export interface UIStore {
   toggleFinance: () => void;
   toggleGuide: () => void;
   toggleAnimals: () => void;
+  toggleJobs: () => void;
   dismissNotification: (id: string) => void;
 }
+
+const closeOthers = {
+  financeOpen: false,
+  guideOpen: false,
+  animalsOpen: false,
+  jobsOpen: false,
+};
 
 export const useUIStore = create<UIStore>((set) => ({
   activeTab: null,
   financeOpen: false,
   guideOpen: false,
   animalsOpen: false,
+  jobsOpen: false,
   dismissed: [],
 
   setActiveTab: (tab) => set((s) => ({ activeTab: s.activeTab === tab ? null : tab })),
   toggleFinance: () =>
-    set((s) => ({ financeOpen: !s.financeOpen, guideOpen: false, animalsOpen: false })),
+    set((s) => ({ ...closeOthers, financeOpen: !s.financeOpen })),
   toggleGuide: () =>
-    set((s) => ({ guideOpen: !s.guideOpen, financeOpen: false, animalsOpen: false })),
+    set((s) => ({ ...closeOthers, guideOpen: !s.guideOpen })),
   toggleAnimals: () =>
-    set((s) => ({ animalsOpen: !s.animalsOpen, financeOpen: false, guideOpen: false })),
+    set((s) => ({ ...closeOthers, animalsOpen: !s.animalsOpen })),
+  toggleJobs: () =>
+    set((s) => ({ ...closeOthers, jobsOpen: !s.jobsOpen })),
   dismissNotification: (id) =>
     set((s) => (s.dismissed.includes(id) ? {} : { dismissed: [...s.dismissed, id] })),
 }));

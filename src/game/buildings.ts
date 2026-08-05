@@ -159,7 +159,8 @@ export const BUILDINGS: BuildingDef[] = [
     size: [1, 1],
     color: "#3f6d4a",
     icon: "🗑️",
-    description: "Keeps paths tidy. A clean park is a higher-rated park.",
+    description:
+      "Guests throw trash here when nearby. Fills up over time — hire janitors to empty bins and pick up overflow on paths.",
     upkeep: 0.2,
   },
   {

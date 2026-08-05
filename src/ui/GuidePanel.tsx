@@ -226,7 +226,15 @@ const CONTENT: Record<SectionId, ReactNode> = {
       <ul className="guide__list">
         <li>
           <strong>Zookeeper</strong> ($400 hire / $120 day) — mandatory once you have
-          animals. Feeding, cleaning, enrichment refresh.
+          animals. Feeding and light tidy-up.
+        </li>
+        <li>
+          <strong>Habitat Cleaner</strong> ($320 / $100) — deep-cleans enclosures.
+          Hygiene decays daily; cleaners keep welfare from tanking.
+        </li>
+        <li>
+          <strong>Janitor</strong> ($280 / $85) — empties litter bins and picks up path
+          trash. Guests litter as they walk; mess hurts happiness.
         </li>
         <li>
           <strong>Veterinarian</strong> ($700 / $180) — hire when health dips or you run
@@ -242,8 +250,8 @@ const CONTENT: Record<SectionId, ReactNode> = {
         </li>
       </ul>
       <p className="guide__tip">
-        Two keepers for a growing park is usually smarter than one keeper and an early
-        second vet.
+        Open the <strong>Jobs</strong> menu (👷) for a full rundown of every role. Place
+        litter bins on busy paths before hiring your first janitor.
       </p>
     </>
   ),

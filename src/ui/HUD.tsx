@@ -40,6 +40,7 @@ import Notifications from "./Notifications";
 import FinancePanel from "./FinancePanel";
 import GuidePanel from "./GuidePanel";
 import AnimalOverview from "./AnimalOverview";
+import JobsOverview from "./JobsOverview";
 
 const money = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
@@ -72,6 +73,7 @@ export default function HUD() {
       <FinancePanel />
       <GuidePanel />
       <AnimalOverview />
+      <JobsOverview />
     </div>
   );
 }
@@ -115,6 +117,7 @@ function TopBar() {
   const toggleFinance = useUIStore((s) => s.toggleFinance);
   const toggleGuide = useUIStore((s) => s.toggleGuide);
   const toggleAnimals = useUIStore((s) => s.toggleAnimals);
+  const toggleJobs = useUIStore((s) => s.toggleJobs);
 
   const appeal = parkAppeal(animals);
   const welfare = Math.round(stats.averageAnimalWelfare);
@@ -193,6 +196,14 @@ function TopBar() {
           title="Animal overview"
         >
           🐾
+        </button>
+        <button
+          type="button"
+          className="ctrl"
+          onClick={toggleJobs}
+          title="Jobs & staff — roles overview"
+        >
+          👷
         </button>
         <button
           type="button"
@@ -411,6 +422,7 @@ function BuildingInspector({ id }: { id: string }) {
   const isShop = !!def.revenuePerUse;
   const isEntrance = b.defId === "entrance-arch";
   const isParking = b.defId === "parking-lot";
+  const isTrash = b.defId === "trash-bin";
   const openFactor = shopOpenFactor(timeOfDay, b.condition);
   const openLabel = shopOpenLabel(openFactor, b.condition);
   const parking = parkingSummary(buildings);
@@ -495,6 +507,21 @@ function BuildingInspector({ id }: { id: string }) {
           <p className="inspector__note">
             Hire mechanics to patch cracks. Place extra lots on owned land (Guest tab)
             after expanding.
+          </p>
+        </>
+      )}
+
+      {isTrash && (
+        <>
+          <div className="factors">
+            <FactorBar label="Fill" value={Math.round(b.fillLevel ?? 0)} />
+          </div>
+          <p className="inspector__note">
+            {(b.fillLevel ?? 0) >= 95
+              ? "Overflowing — guests will litter the path instead. Hire a janitor."
+              : (b.fillLevel ?? 0) >= 60
+                ? "Getting full. Janitors empty bins on their rounds."
+                : "Ready for guests. Place bins on busy paths."}
           </p>
         </>
       )}
@@ -584,12 +611,16 @@ function StaffInspector({ id }: { id: string }) {
       </div>
       <p className="inspector__note">
         {m.role === "keeper"
-          ? "Feeds the hungriest animals and cleans enclosures each day."
-          : m.role === "vet"
-            ? "Treats sick and injured animals across the park."
-            : m.role === "mechanic"
-              ? "Slows wear on fences and facilities."
-              : "Staffs shops so guest spending stays high."}
+          ? "Feeds the hungriest animals and gives a light tidy while working."
+          : m.role === "cleaner"
+            ? "Deep-cleans the dirtiest habitats so hygiene stays high."
+            : m.role === "vet"
+              ? "Treats sick and injured animals across the park."
+              : m.role === "janitor"
+                ? "Empties litter bins and picks up trash on guest paths."
+                : m.role === "mechanic"
+                  ? "Slows wear on fences and facilities."
+                  : "Staffs shops so guest spending stays high."}
       </p>
       {assignmentNames.length > 0 && (
         <p className="inspector__note">

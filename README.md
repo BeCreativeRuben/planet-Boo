@@ -23,6 +23,7 @@ Deep-link straight into the park: `http://localhost:5173/#play`
 - **Guests & economy** — ticket sales, shops, staff wages, daily settlement, conservation points
 - **Day / night** — ~15-minute cycles; daytime visitors, nighttime maintenance (speed up to skip)
 - **Land parcels** — buy adjacent plots in any direction; parking lot capacity gates arrivals
+- **Staff jobs** — keepers, habitat cleaners, janitors, vets, vendors, mechanics (Jobs menu)
 - **3D park** — orbit camera, day cycle, low-poly animals, walking guests
 - **Demo park** — opens with starter habitats so you can explore immediately
 

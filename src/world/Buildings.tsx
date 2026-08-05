@@ -319,7 +319,9 @@ function BenchMesh({ def }: MeshProps) {
   );
 }
 
-function TrashBinMesh({ def }: MeshProps) {
+function TrashBinMesh({ def, fillLevel = 0 }: MeshProps & { fillLevel?: number }) {
+  const fill = Math.max(0, Math.min(100, fillLevel)) / 100;
+  const trashH = 0.08 + fill * 0.55;
   return (
     <group>
       <mesh position={[0, 0.4, 0]} castShadow>
@@ -334,6 +336,18 @@ function TrashBinMesh({ def }: MeshProps) {
         <boxGeometry args={[0.2, 0.12, 0.04]} />
         {mat("#c9a227", 0.4, 0.4)}
       </mesh>
+      {fill > 0.05 && (
+        <mesh position={[0, 0.15 + trashH / 2, 0]} castShadow>
+          <cylinderGeometry args={[0.22, 0.24, trashH, 8]} />
+          {mat(fill > 0.85 ? "#5a4030" : "#7a6a4a", 0.95)}
+        </mesh>
+      )}
+      {fill >= 0.95 && (
+        <mesh position={[0.12, 0.95, 0.05]} castShadow>
+          <boxGeometry args={[0.16, 0.06, 0.12]} />
+          {mat("#8a7050", 0.9)}
+        </mesh>
+      )}
     </group>
   );
 }
@@ -768,7 +782,12 @@ function FacilityMesh({ def, w, d }: MeshProps) {
 /*  Dispatch                                                                  */
 /* -------------------------------------------------------------------------- */
 
-function BuildingMesh({ def, w, d }: MeshProps) {
+function BuildingMesh({
+  def,
+  w,
+  d,
+  fillLevel,
+}: MeshProps & { fillLevel?: number }) {
   switch (def.id) {
     case "fence-segment":
       return <FenceMesh def={def} w={w} d={d} />;
@@ -795,7 +814,7 @@ function BuildingMesh({ def, w, d }: MeshProps) {
     case "bench":
       return <BenchMesh def={def} w={w} d={d} />;
     case "trash-bin":
-      return <TrashBinMesh def={def} w={w} d={d} />;
+      return <TrashBinMesh def={def} w={w} d={d} fillLevel={fillLevel} />;
     case "info-board":
       return <InfoBoardMesh def={def} w={w} d={d} />;
     case "food-stall":
@@ -861,7 +880,7 @@ function PlacedBuilding({ id }: { id: string }) {
       onClick={placing ? undefined : onClick}
       raycast={placing ? () => {} : undefined}
     >
-      <BuildingMesh def={def} w={w} d={d} />
+      <BuildingMesh def={def} w={w} d={d} fillLevel={building.fillLevel} />
     </group>
   );
 }
