@@ -35,22 +35,28 @@ export interface UIStore {
   animalsOpen: boolean;
   /** Jobs / staff roles overview modal visibility. */
   jobsOpen: boolean;
+  /** Forced top-down land purchase survey. */
+  landSelectOpen: boolean;
   /** Ids of derived notifications the player has dismissed this session. */
   dismissed: string[];
 
   setActiveTab: (tab: BuildTab | null) => void;
   toggleFinance: () => void;
+  openFinance: () => void;
   toggleGuide: () => void;
   toggleAnimals: () => void;
   toggleJobs: () => void;
+  openLandSelect: () => void;
+  closeLandSelect: () => void;
   dismissNotification: (id: string) => void;
 }
 
-const closeOthers = {
+const closeModals = {
   financeOpen: false,
   guideOpen: false,
   animalsOpen: false,
   jobsOpen: false,
+  landSelectOpen: false,
 };
 
 export const useUIStore = create<UIStore>((set) => ({
@@ -59,17 +65,26 @@ export const useUIStore = create<UIStore>((set) => ({
   guideOpen: false,
   animalsOpen: false,
   jobsOpen: false,
+  landSelectOpen: false,
   dismissed: [],
 
   setActiveTab: (tab) => set((s) => ({ activeTab: s.activeTab === tab ? null : tab })),
   toggleFinance: () =>
-    set((s) => ({ ...closeOthers, financeOpen: !s.financeOpen })),
+    set((s) => ({
+      ...closeModals,
+      financeOpen: !s.financeOpen,
+      landSelectOpen: false,
+    })),
+  openFinance: () => set({ ...closeModals, financeOpen: true }),
   toggleGuide: () =>
-    set((s) => ({ ...closeOthers, guideOpen: !s.guideOpen })),
+    set((s) => ({ ...closeModals, guideOpen: !s.guideOpen })),
   toggleAnimals: () =>
-    set((s) => ({ ...closeOthers, animalsOpen: !s.animalsOpen })),
+    set((s) => ({ ...closeModals, animalsOpen: !s.animalsOpen })),
   toggleJobs: () =>
-    set((s) => ({ ...closeOthers, jobsOpen: !s.jobsOpen })),
+    set((s) => ({ ...closeModals, jobsOpen: !s.jobsOpen })),
+  openLandSelect: () =>
+    set({ ...closeModals, landSelectOpen: true, activeTab: null }),
+  closeLandSelect: () => set({ landSelectOpen: false }),
   dismissNotification: (id) =>
     set((s) => (s.dismissed.includes(id) ? {} : { dismissed: [...s.dismissed, id] })),
 }));
