@@ -39,8 +39,8 @@ export function welfareForAnimal(id: string): WelfareResult | null {
 
 /**
  * Derive the current set of player-facing notifications from game state:
- * critical-welfare animals, bankruptcy warnings and milestones. Ids are stable
- * so the UI can remember which ones the player dismissed.
+ * critical-welfare animals, deaths, bankruptcy warnings and milestones. Ids are
+ * stable so the UI can remember which ones the player dismissed.
  */
 export function deriveNotifications(): GameNotification[] {
   const s = useGameStore.getState();
@@ -56,8 +56,42 @@ export function deriveNotifications(): GameNotification[] {
     });
   }
 
+  for (const notice of s.deathNotices) {
+    out.push({
+      id: notice.id,
+      kind: "critical",
+      title: notice.title,
+      message: notice.message,
+      sticky: true,
+    });
+  }
+
+  const keeperCount = Object.values(s.staff).filter((m) => m.role === "keeper").length;
+  if (Object.keys(s.animals).length > 0 && keeperCount === 0) {
+    out.push({
+      id: "no-keepers",
+      kind: "warning",
+      title: "No zookeepers on payroll",
+      message: "Animals will starve without keepers. Hire one from the Staff tab.",
+    });
+  }
+
   for (const a of Object.values(s.animals)) {
-    if (a.welfare < 45) {
+    if (a.hunger <= 15 || a.health <= 25) {
+      const def = SPECIES_BY_ID[a.speciesId];
+      out.push({
+        id: `starve-${a.id}`,
+        kind: a.health <= 15 || a.hunger <= 5 ? "critical" : "warning",
+        title:
+          a.health <= 15
+            ? `${a.name} the ${def?.name ?? "animal"} is dying`
+            : `${a.name} the ${def?.name ?? "animal"} is starving`,
+        message:
+          a.hunger <= 15
+            ? "Hunger is critical — hire keepers or they will not last."
+            : "Health is failing — call a vet and keep them fed.",
+      });
+    } else if (a.welfare < 45) {
       const def = SPECIES_BY_ID[a.speciesId];
       const w = welfareForAnimal(a.id);
       const worst = w ? worstFactor(w) : undefined;

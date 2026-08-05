@@ -15,6 +15,7 @@ import { getStaffRole } from "../game/staffTypes";
 import { getBuilding } from "../game/buildings";
 import { newLedgerDay } from "../game/economy";
 import { footprintCenter, spawnGuest, worldToCell } from "../game/simulation";
+import { lifespanForSpecies } from "../game/care";
 import { useGameStore } from "./gameStore";
 
 let seq = 0;
@@ -56,7 +57,7 @@ function makeAnimal(
     habitatId: habitat.id,
     position: { x: cx + (Math.random() - 0.5) * 6, z: cz + (Math.random() - 0.5) * 6 },
     age: 200 + Math.floor(Math.random() * 400),
-    lifespan: 500,
+    lifespan: lifespanForSpecies(speciesId),
     sex: Math.random() < 0.5 ? "male" : "female",
     health: 92,
     hunger: 78,

@@ -29,6 +29,13 @@ import type {
   Vec2,
 } from "../game/types";
 
+import {
+  applyCarePulse,
+  applyDailyCare,
+  deathMessage,
+  lifespanForSpecies,
+  type AnimalDeath,
+} from "../game/care";
 import { BUILDINGS_BY_ID, getBuilding } from "../game/buildings";
 import { SPECIES_BY_ID } from "../game/species";
 import { getStaffRole } from "../game/staffTypes";
@@ -132,6 +139,15 @@ export interface CreateHabitatOpts {
   biome?: Biome;
 }
 
+/** One-shot alert kept until the player dismisses it (e.g. animal death). */
+export interface DeathNotice {
+  id: string;
+  animalId: string;
+  title: string;
+  message: string;
+  day: number;
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Store shape                                                               */
 /* -------------------------------------------------------------------------- */
@@ -144,6 +160,8 @@ export interface ZooStore extends GameState {
   buildBiome: Biome;
   cameraTarget: [number, number, number];
   focusAnimalId: string | null;
+  /** Recent animal deaths awaiting toast display / dismiss. */
+  deathNotices: DeathNotice[];
 
   /* --- clock / speed --- */
   step: (dt: number) => void;
@@ -168,6 +186,8 @@ export interface ZooStore extends GameState {
   buyLand: () => boolean;
   /** Change an existing habitat's biome (and matching climate). */
   setHabitatBiome: (habitatId: string, biome: Biome) => void;
+  /** Clear a death toast after the player dismisses it. */
+  dismissDeathNotice: (id: string) => void;
 
   /* --- selection --- */
   selectEntity: (selection: Selection | null) => void;
@@ -208,6 +228,7 @@ type ViewState = {
   buildBiome: Biome;
   cameraTarget: [number, number, number];
   focusAnimalId: string | null;
+  deathNotices: DeathNotice[];
 };
 
 function createInitialState(): GameState & ViewState {
@@ -267,6 +288,7 @@ function createInitialState(): GameState & ViewState {
     buildBiome: "savanna",
     cameraTarget: [0, 0, 0],
     focusAnimalId: null,
+    deathNotices: [],
   };
 }
 
@@ -318,6 +340,58 @@ const clamp = (n: number, lo: number, hi: number): number =>
 
 const capitalize = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
+function noticesFromDeaths(
+  deaths: AnimalDeath[],
+  day: number,
+  existing: DeathNotice[],
+): DeathNotice[] {
+  if (deaths.length === 0) return existing;
+  const added = deaths.map((d) => {
+    const msg = deathMessage(d);
+    return {
+      id: `death-${d.id}-${day}`,
+      animalId: d.id,
+      title: msg.title,
+      message: msg.message,
+      day,
+    };
+  });
+  return [...existing, ...added].slice(-12);
+}
+
+function clearSelectionIfDead(
+  selection: Selection | null,
+  focusAnimalId: string | null,
+  deaths: AnimalDeath[],
+): { selection: Selection | null; focusAnimalId: string | null } {
+  if (deaths.length === 0) return { selection, focusAnimalId };
+  const dead = new Set(deaths.map((d) => d.id));
+  for (const id of dead) forgetEntity(id);
+  return {
+    selection:
+      selection?.kind === "animal" && dead.has(selection.id) ? null : selection,
+    focusAnimalId: focusAnimalId && dead.has(focusAnimalId) ? null : focusAnimalId,
+  };
+}
+
+/** Recompute cached welfare scores after care changes hunger/health. */
+function refreshWelfareScores(
+  animals: Record<string, Animal>,
+  habitats: Record<string, Habitat>,
+): Record<string, Animal> {
+  const next: Record<string, Animal> = {};
+  for (const a of Object.values(animals)) {
+    const habitat = a.habitatId ? habitats[a.habitatId] : undefined;
+    if (!habitat) {
+      next[a.id] = a;
+      continue;
+    }
+    const herd = herdSize(habitat, animals, a.speciesId);
+    next[a.id] = { ...a, welfare: computeWelfare(a, habitat, herd).score };
+  }
+  return next;
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Store                                                                     */
 /* -------------------------------------------------------------------------- */
@@ -343,20 +417,35 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       rolled = true;
     }
 
-    // --- animals: wander + periodic needs/welfare --------------------------
+    // --- animals: wander + periodic needs / keeper care / death ------------
     const doWelfare = tick % WELFARE_INTERVAL === 0;
-    const animals: Record<string, Animal> = {};
+    let animals: Record<string, Animal> = {};
     for (const a of Object.values(s.animals)) {
       const habitat = a.habitatId ? s.habitats[a.habitatId] : undefined;
       const position = wanderAnimal(a, habitat, sdt);
       let next: Animal = { ...a, position };
       if (doWelfare && habitat) {
         const hunger = clamp(a.hunger - 0.5, 0, 100);
-        const herd = herdSize(habitat, s.animals, a.speciesId);
-        const welfare = computeWelfare({ ...next, hunger }, habitat, herd).score;
-        next = { ...next, hunger, welfare };
+        next = { ...next, hunger };
       }
       animals[a.id] = next;
+    }
+
+    let habitats = s.habitats;
+    let staff = s.staff;
+    let deathNotices = s.deathNotices;
+    let selection = s.selection;
+    let focusAnimalId = s.focusAnimalId;
+
+    if (doWelfare) {
+      const cared = applyCarePulse(animals, habitats, staff, s.buildings);
+      animals = refreshWelfareScores(cared.animals, cared.habitats);
+      habitats = cared.habitats;
+      staff = cared.staff;
+      deathNotices = noticesFromDeaths(cared.deaths, s.day, deathNotices);
+      const cleared = clearSelectionIfDead(selection, focusAnimalId, cared.deaths);
+      selection = cleared.selection;
+      focusAnimalId = cleared.focusAnimalId;
     }
 
     // --- guests: move, age out, keep happy ---------------------------------
@@ -413,7 +502,12 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       tick,
       timeOfDay,
       animals,
+      habitats,
+      staff,
       guests,
+      deathNotices,
+      selection,
+      focusAnimalId,
       finances: { ...s.finances, today },
       stats: {
         ...s.stats,
@@ -427,20 +521,26 @@ export const useGameStore = create<ZooStore>((set, get) => ({
 
   advanceDay: () =>
     set((s) => {
-      const animalList = Object.values(s.animals);
-      let welfareSum = 0;
-      const animals: Record<string, Animal> = {};
-      for (const a of animalList) {
-        const habitat = a.habitatId ? s.habitats[a.habitatId] : undefined;
-        const herd = habitat ? herdSize(habitat, s.animals, a.speciesId) : 1;
-        const hunger = clamp(a.hunger - 6, 0, 100);
-        const age = a.age + 1;
-        const welfare = habitat
-          ? computeWelfare({ ...a, hunger }, habitat, herd).score
-          : a.welfare;
-        welfareSum += welfare;
-        animals[a.id] = { ...a, hunger, age, welfare };
+      // Daily hunger drain + ageing first, then keeper/vet care and deaths.
+      const aged: Record<string, Animal> = {};
+      for (const a of Object.values(s.animals)) {
+        aged[a.id] = {
+          ...a,
+          hunger: clamp(a.hunger - 6, 0, 100),
+          age: a.age + 1,
+        };
       }
+
+      const cared = applyDailyCare(aged, s.habitats, s.staff, s.buildings);
+      const animals = refreshWelfareScores(cared.animals, cared.habitats);
+      const habitats = cared.habitats;
+      const staff = cared.staff;
+      const deathNotices = noticesFromDeaths(cared.deaths, s.day + 1, s.deathNotices);
+      const cleared = clearSelectionIfDead(s.selection, s.focusAnimalId, cared.deaths);
+
+      const animalList = Object.values(animals);
+      let welfareSum = 0;
+      for (const a of animalList) welfareSum += a.welfare;
 
       const conservationEarned = animalList.reduce((n, a) => {
         const def = SPECIES_BY_ID[a.speciesId];
@@ -449,20 +549,25 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       }, 0);
 
       const finances = settleDay(s.finances, {
-        animalCosts: dailyAnimalCosts(s.animals),
-        staffWages: dailyStaffWages(s.staff),
+        animalCosts: dailyAnimalCosts(animals),
+        staffWages: dailyStaffWages(staff),
         upkeep: dailyUpkeep(s.buildings),
         conservationEarned,
       });
 
       const buildings: Record<string, Building> = {};
       for (const [id, b] of Object.entries(s.buildings)) {
-        buildings[id] = { ...b, condition: Math.max(0, b.condition - 0.5) };
+        // Mechanics slow building wear.
+        const mechanicCount = Object.values(staff).filter((m) => m.role === "mechanic").length;
+        const wear = Math.max(0.15, 0.5 - mechanicCount * 0.12);
+        buildings[id] = { ...b, condition: Math.max(0, b.condition - wear) };
       }
 
       const guestList = Object.values(s.guests);
       const guestCount = guestList.length;
-      const averageAnimalWelfare = animalList.length ? Math.round(welfareSum / animalList.length) : 0;
+      const averageAnimalWelfare = animalList.length
+        ? Math.round(welfareSum / animalList.length)
+        : 0;
       const averageGuestHappiness = guestCount
         ? Math.round(guestList.reduce((sum, g) => sum + g.happiness, 0) / guestCount)
         : 0;
@@ -475,7 +580,12 @@ export const useGameStore = create<ZooStore>((set, get) => ({
         day: s.day + 1,
         finances,
         animals,
+        habitats,
+        staff,
         buildings,
+        deathNotices,
+        selection: cleared.selection,
+        focusAnimalId: cleared.focusAnimalId,
         stats: { guestCount, averageGuestHappiness, averageAnimalWelfare, rating },
       };
     }),
@@ -660,7 +770,7 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       habitatId,
       position,
       age: 120 + Math.floor(Math.random() * 300),
-      lifespan: 500,
+      lifespan: lifespanForSpecies(speciesId),
       sex: Math.random() < 0.5 ? "male" : "female",
       health: 95,
       hunger: 85,
@@ -690,14 +800,18 @@ export const useGameStore = create<ZooStore>((set, get) => ({
     if (!def || s.finances.cash < def.hireCost) return;
     const id = uid("s");
     const count = Object.values(s.staff).filter((m) => m.role === role).length;
+    const habitatIds = Object.values(s.habitats)
+      .filter((h) => h.animalIds.length > 0)
+      .map((h) => h.id);
+    const primary = habitatIds[count % Math.max(1, habitatIds.length)];
     const member: Staff = {
       id,
       role,
       name: `${def.name} ${count + 1}`,
       position: { x: (Math.random() - 0.5) * 6, z: 2 },
       energy: 90,
-      assignments: [],
-      targetId: undefined,
+      assignments: primary ? [primary] : [],
+      targetId: primary,
     };
     set({ staff: { ...s.staff, [id]: member }, finances: applyPurchase(s.finances, def.hireCost) });
   },
@@ -717,6 +831,8 @@ export const useGameStore = create<ZooStore>((set, get) => ({
   /* ---- selection & finance ---- */
 
   selectEntity: (selection) => set({ selection }),
+  dismissDeathNotice: (id) =>
+    set((s) => ({ deathNotices: s.deathNotices.filter((n) => n.id !== id) })),
   setTicketPrice: (price) =>
     set((s) => ({ finances: { ...s.finances, ticketPrice: clamp(Math.round(price), 0, 60) } })),
 }));
@@ -806,6 +922,7 @@ export function loadGame(): boolean {
       selection: null,
       hoverCell: null,
       focusAnimalId: null,
+      deathNotices: [],
       build: {
         active: false,
         tool: "none",

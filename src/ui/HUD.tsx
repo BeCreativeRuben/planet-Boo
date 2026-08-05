@@ -386,8 +386,12 @@ function BuildingInspector({ id }: { id: string }) {
 
 function StaffInspector({ id }: { id: string }) {
   const m = useGameStore((s) => s.staff[id]);
+  const habitats = useGameStore((s) => s.habitats);
   if (!m) return null;
   const def = getStaffRole(m.role);
+  const assignmentNames = m.assignments
+    .map((hid) => habitats[hid]?.name)
+    .filter(Boolean) as string[];
   return (
     <div className="inspector glass">
       <header className="inspector__head">
@@ -402,6 +406,20 @@ function StaffInspector({ id }: { id: string }) {
       <div className="factors">
         <FactorBar label="Energy" value={m.energy} />
       </div>
+      <p className="inspector__note">
+        {m.role === "keeper"
+          ? "Feeds the hungriest animals and cleans enclosures each day."
+          : m.role === "vet"
+            ? "Treats sick and injured animals across the park."
+            : m.role === "mechanic"
+              ? "Slows wear on fences and facilities."
+              : "Staffs shops so guest spending stays high."}
+      </p>
+      {assignmentNames.length > 0 && (
+        <p className="inspector__note">
+          Assigned: {assignmentNames.join(", ")}
+        </p>
+      )}
     </div>
   );
 }
