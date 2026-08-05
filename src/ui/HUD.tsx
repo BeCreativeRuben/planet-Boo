@@ -423,6 +423,8 @@ function BuildingInspector({ id }: { id: string }) {
       : 0;
   const sales = b.salesToday ?? 0;
   const customers = Math.round(b.customersToday ?? 0);
+  const salesLife = b.salesLifetime ?? 0;
+  const customersLife = Math.round(b.customersLifetime ?? 0);
 
   return (
     <div className="inspector glass">
@@ -511,8 +513,16 @@ function BuildingInspector({ id }: { id: string }) {
               <dd>${Math.round(sales).toLocaleString()}</dd>
             </div>
             <div>
-              <dt>Customers</dt>
+              <dt>Customers today</dt>
               <dd>{customers.toLocaleString()}</dd>
+            </div>
+            <div>
+              <dt>Lifetime sales</dt>
+              <dd>${Math.round(salesLife).toLocaleString()}</dd>
+            </div>
+            <div>
+              <dt>Lifetime guests</dt>
+              <dd>{customersLife.toLocaleString()}</dd>
             </div>
             <div>
               <dt>Est. / day</dt>

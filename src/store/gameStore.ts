@@ -246,6 +246,8 @@ function makeBuilding(defId: string, cell: Vec2, rotation = 0, habitatId?: strin
     condition: 100,
     salesToday: 0,
     customersToday: 0,
+    salesLifetime: 0,
+    customersLifetime: 0,
   };
 }
 
@@ -573,6 +575,8 @@ export const useGameStore = create<ZooStore>((set, get) => ({
           ...b,
           salesToday: (b.salesToday ?? 0) + earned,
           customersToday: (b.customersToday ?? 0) + served,
+          salesLifetime: (b.salesLifetime ?? 0) + earned,
+          customersLifetime: (b.customersLifetime ?? 0) + served,
         };
       }
     }
@@ -654,6 +658,9 @@ export const useGameStore = create<ZooStore>((set, get) => ({
           condition: Math.max(0, b.condition - wear),
           salesToday: 0,
           customersToday: 0,
+          // Lifetime totals persist across day rolls.
+          salesLifetime: b.salesLifetime ?? 0,
+          customersLifetime: b.customersLifetime ?? 0,
         };
       }
 
