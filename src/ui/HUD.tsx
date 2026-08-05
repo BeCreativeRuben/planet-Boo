@@ -14,7 +14,13 @@
 import { getSpecies } from "../game/species";
 import { getBuilding } from "../game/buildings";
 import { getStaffRole } from "../game/staffTypes";
-import { ledgerNet } from "../game/economy";
+import {
+  ledgerNet,
+  shopOpenFactor,
+  shopOpenLabel,
+  transactionRevenue,
+  vendorBoost,
+} from "../game/economy";
 import type { BuildTool } from "../game/types";
 import { useGameStore } from "../store/gameStore";
 import { useUIStore, type BuildTab } from "../store/uiStore";
@@ -373,10 +379,27 @@ function HabitatInspector({ id }: { id: string }) {
 
 function BuildingInspector({ id }: { id: string }) {
   const b = useGameStore((s) => s.buildings[id]);
+  const timeOfDay = useGameStore((s) => s.timeOfDay);
+  const guests = useGameStore((s) => s.guests);
+  const staff = useGameStore((s) => s.staff);
+  const avgHappy = useGameStore((s) => s.stats.averageGuestHappiness);
   const demolish = useGameStore((s) => s.demolish);
   if (!b) return null;
   const def = getBuilding(b.defId);
   if (!def) return null;
+
+  const isShop = !!def.revenuePerUse;
+  const openFactor = shopOpenFactor(timeOfDay, b.condition);
+  const openLabel = shopOpenLabel(openFactor, b.condition);
+  const vendorCount = Object.values(staff).filter((m) => m.role === "vendor").length;
+  const guestCount = Object.keys(guests).length;
+  const estDay =
+    isShop && def.revenuePerUse
+      ? transactionRevenue(def, avgHappy) * guestCount * 0.12 * vendorBoost(vendorCount)
+      : 0;
+  const sales = b.salesToday ?? 0;
+  const customers = Math.round(b.customersToday ?? 0);
+
   return (
     <div className="inspector glass">
       <header className="inspector__head">
@@ -388,9 +411,50 @@ function BuildingInspector({ id }: { id: string }) {
           <p>{def.category}</p>
         </div>
       </header>
+
+      {isShop && (
+        <>
+          <p
+            className="inspector__note"
+            style={{ color: openFactor > 0 ? "#5fc07a" : "#e0655a", fontWeight: 700 }}
+          >
+            {openLabel}
+          </p>
+          <dl className="animal-panel__facts">
+            <div>
+              <dt>Sales today</dt>
+              <dd>${Math.round(sales).toLocaleString()}</dd>
+            </div>
+            <div>
+              <dt>Customers</dt>
+              <dd>{customers.toLocaleString()}</dd>
+            </div>
+            <div>
+              <dt>Est. / day</dt>
+              <dd>${Math.round(estDay).toLocaleString()}</dd>
+            </div>
+            <div>
+              <dt>Per sale</dt>
+              <dd>~${Math.round(transactionRevenue(def, avgHappy))}</dd>
+            </div>
+          </dl>
+          <div className="factors">
+            <FactorBar label="Open now" value={Math.round(openFactor * 100)} />
+          </div>
+          {vendorCount === 0 && (
+            <p className="inspector__note">
+              No vendors hired — hire vendors in the Staff tab to boost sales.
+            </p>
+          )}
+        </>
+      )}
+
       <div className="factors">
         <FactorBar label="Condition" value={b.condition} />
       </div>
+      {def.upkeep != null && def.upkeep > 0 && (
+        <p className="inspector__note">Upkeep ${def.upkeep}/day</p>
+      )}
       <p className="inspector__note">{def.description}</p>
       <button type="button" className="btn btn--danger" onClick={() => demolish(id)}>
         Demolish

@@ -220,6 +220,10 @@ export interface Building {
   habitatId?: string;
   /** 0..100 structural condition. */
   condition: number;
+  /** Revenue earned today (shops / stalls only). */
+  salesToday?: number;
+  /** Guest transactions served today (shops / stalls only). */
+  customersToday?: number;
 }
 
 /* -------------------------------------------------------------------------- */

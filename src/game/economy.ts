@@ -176,6 +176,31 @@ export function transactionRevenue(def: BuildingDef, guestHappiness: number): nu
   return base * (0.7 + (guestHappiness / 100) * 0.6);
 }
 
+/**
+ * How open a shop is right now (0 = closed, 1 = fully open).
+ * Closed at night and when the building is falling apart.
+ */
+export function shopOpenFactor(timeOfDay: number, condition: number): number {
+  if (condition < 15) return 0;
+  // Night: closed.
+  if (timeOfDay < 0.28 || timeOfDay >= 0.82) return 0;
+  // Dawn / dusk: half staffed.
+  if (timeOfDay < 0.34 || timeOfDay >= 0.75) return 0.55;
+  return 1;
+}
+
+export function shopOpenLabel(factor: number, condition: number): string {
+  if (condition < 15) return "Closed — needs repair";
+  if (factor <= 0) return "Closed for the night";
+  if (factor < 0.8) return "Open (quiet hours)";
+  return "Open";
+}
+
+/** Vendor staffing boosts shop throughput (diminishing after a few vendors). */
+export function vendorBoost(vendorCount: number): number {
+  return 1 + Math.min(1.25, vendorCount * 0.22);
+}
+
 /* -------------------------------------------------------------------------- */
 /*  In-day accrual                                                            */
 /* -------------------------------------------------------------------------- */

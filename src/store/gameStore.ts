@@ -52,6 +52,8 @@ import {
   expectedDailyGuests,
   settleDay,
   transactionRevenue,
+  shopOpenFactor,
+  vendorBoost,
 } from "../game/economy";
 import {
   BIOME_CLIMATE,
@@ -222,6 +224,8 @@ function makeBuilding(defId: string, cell: Vec2, rotation = 0, habitatId?: strin
     rotation,
     habitatId,
     condition: 100,
+    salesToday: 0,
+    customersToday: 0,
   };
 }
 
@@ -487,20 +491,38 @@ export const useGameStore = create<ZooStore>((set, get) => ({
     const avgHappiness = guestCount
       ? Object.values(guests).reduce((n, g) => n + g.happiness, 0) / guestCount
       : 0;
+    const vendorCount = Object.values(staff).filter((m) => m.role === "vendor").length;
+    const vBoost = vendorBoost(vendorCount);
     let shopPerDay = 0;
     let infoBoards = 0;
+    const buildings: Record<string, Building> = { ...s.buildings };
+
     for (const b of Object.values(s.buildings)) {
       const def = getBuilding(b.defId);
       if (!def) continue;
-      if (def.revenuePerUse) {
-        shopPerDay += transactionRevenue(def, avgHappiness) * guestCount * 0.12;
-      }
       if (b.defId === "info-board") infoBoards++;
+      if (!def.revenuePerUse) continue;
+
+      const open = shopOpenFactor(s.timeOfDay, b.condition);
+      // Guests-per-day visit rate for this stall at full open.
+      const visitsPerDay = guestCount * 0.12 * vBoost;
+      const earnPerDay = transactionRevenue(def, avgHappiness) * visitsPerDay * open;
+      shopPerDay += earnPerDay;
+
+      if (open > 0 && dayFrac > 0) {
+        const earned = earnPerDay * dayFrac;
+        const served = visitsPerDay * open * dayFrac;
+        buildings[b.instanceId] = {
+          ...b,
+          salesToday: (b.salesToday ?? 0) + earned,
+          customersToday: (b.customersToday ?? 0) + served,
+        };
+      }
     }
     const donationPerDay = dailyDonations(guestCount, avgHappiness, infoBoards);
     const foodPerDay = dailyAnimalCosts(animals);
     const wagePerDay = dailyStaffWages(staff);
-    const upkeepPerDay = dailyUpkeep(s.buildings);
+    const upkeepPerDay = dailyUpkeep(buildings);
 
     const finances = applyOperatingDelta(s.finances, {
       ticketIncome: ticketEarned,
@@ -518,6 +540,7 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       habitats,
       staff,
       guests,
+      buildings,
       deathNotices,
       selection,
       focusAnimalId,
@@ -573,7 +596,12 @@ export const useGameStore = create<ZooStore>((set, get) => ({
         // Mechanics slow building wear.
         const mechanicCount = Object.values(staff).filter((m) => m.role === "mechanic").length;
         const wear = Math.max(0.15, 0.5 - mechanicCount * 0.12);
-        buildings[id] = { ...b, condition: Math.max(0, b.condition - wear) };
+        buildings[id] = {
+          ...b,
+          condition: Math.max(0, b.condition - wear),
+          salesToday: 0,
+          customersToday: 0,
+        };
       }
 
       const guestList = Object.values(s.guests);
