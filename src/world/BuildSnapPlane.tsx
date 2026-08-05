@@ -6,7 +6,7 @@
  * over bumpy terrain, existing fences, animals or guests.
  *
  * Fence / gate tools support click-drag painting: every newly entered cell
- * along the stroke gets a segment, auto-rotated to match the stroke direction.
+ * along the stroke gets a segment, auto-rotated to match that step's direction.
  */
 
 import { useRef } from "react";
@@ -15,7 +15,18 @@ import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 
 import { useGameStore } from "../store/gameStore";
-import { worldToCell, inPlot, cellCenter } from "../game/simulation";import type { Vec2 } from "../game/types";
+import {
+  worldToCell,
+  inPlot,
+  cellCenter,
+  collectFenceCells,
+  fenceRotationFromNeighbors,
+  fenceRotationForStroke,
+  footprintCells,
+  footprintCenter,
+} from "../game/simulation";
+import { getBuilding } from "../game/buildings";
+import type { Vec2 } from "../game/types";
 
 function cellFromPoint(point: THREE.Vector3, plotSize: number): Vec2 | null {
   const cx = worldToCell(point.x);
@@ -52,14 +63,6 @@ function lineCells(a: Vec2, b: Vec2): Vec2[] {
   return cells;
 }
 
-/** Fence mesh is thin on local Z — rotation 0 runs east–west, 1 north–south. */
-function rotationForStroke(from: Vec2, to: Vec2, fallback: number): number {
-  const dx = Math.abs(to.x - from.x);
-  const dz = Math.abs(to.z - from.z);
-  if (dx === 0 && dz === 0) return fallback;
-  return dx >= dz ? 0 : 1;
-}
-
 function resolvePlaceId(): string | undefined {
   const { build } = useGameStore.getState();
   if (build.tool === "fence") return build.selectedDefId ?? "fence-segment";
@@ -72,6 +75,33 @@ function isFenceLike(defId: string | undefined): boolean {
   return defId === "fence-segment" || defId === "habitat-gate";
 }
 
+function neighborFenceRotation(cell: Vec2, fallback: number): number {
+  const fences = collectFenceCells(useGameStore.getState().buildings);
+  return fenceRotationFromNeighbors(cell, fences, fallback);
+}
+
+/** Update yaw on an already-placed fence/gate occupying `cell`. */
+function reorientFenceAt(cell: Vec2, rotation: number) {
+  const store = useGameStore.getState();
+  for (const b of Object.values(store.buildings)) {
+    if (b.defId !== "fence-segment" && b.defId !== "habitat-gate") continue;
+    if (!footprintCells(b).some((c) => c.x === cell.x && c.z === cell.z)) continue;
+    if (b.rotation === rotation) return;
+    const def = getBuilding(b.defId);
+    useGameStore.setState((s) => ({
+      buildings: {
+        ...s.buildings,
+        [b.instanceId]: {
+          ...b,
+          rotation,
+          position: footprintCenter(cell, def, rotation),
+        },
+      },
+    }));
+    return;
+  }
+}
+
 export function BuildSnapPlane() {
   const active = useGameStore((s) => s.build.active);
   const tool = useGameStore((s) => s.build.tool);
@@ -82,6 +112,8 @@ export function BuildSnapPlane() {
   const lastCell = useRef<Vec2 | null>(null);
   const strokeRot = useRef(0);
   const painted = useRef<Set<string>>(new Set());
+  const startCell = useRef<Vec2 | null>(null);
+  const reorientedStart = useRef(false);
 
   if (!active || tool === "none" || tool === "delete" || tool === "animal") {
     return null;
@@ -121,22 +153,38 @@ export function BuildSnapPlane() {
       return;
     }
 
-    if (painting.current && lastCell.current) {
-      const defId = resolvePlaceId();
-      const fence = isFenceLike(defId);
-      const rot = fence
-        ? rotationForStroke(lastCell.current, cell, strokeRot.current)
-        : useGameStore.getState().build.rotation;
-      if (fence) strokeRot.current = rot;
+    const defId = resolvePlaceId();
+    const fence = isFenceLike(defId);
 
+    if (painting.current && lastCell.current) {
       const path = lineCells(lastCell.current, cell);
-      for (const c of path) placeAt(c, rot);
+      let prev = lastCell.current;
+      for (const c of path) {
+        if (c.x === prev.x && c.z === prev.z) continue;
+        const rot = fence
+          ? fenceRotationForStroke(prev, c, strokeRot.current)
+          : useGameStore.getState().build.rotation;
+        if (fence) {
+          strokeRot.current = rot;
+          // Once the stroke has a direction, twist the first cell to match.
+          if (!reorientedStart.current && startCell.current) {
+            reorientFenceAt(startCell.current, rot);
+            reorientedStart.current = true;
+          }
+        }
+        placeAt(c, rot);
+        prev = c;
+      }
       lastCell.current = cell;
-      updateHover(cell, rot);
+      updateHover(cell, fence ? strokeRot.current : undefined);
       return;
     }
 
-    updateHover(cell);
+    if (fence) {
+      updateHover(cell, neighborFenceRotation(cell, useGameStore.getState().build.rotation));
+    } else {
+      updateHover(cell);
+    }
   };
 
   const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
@@ -150,7 +198,14 @@ export function BuildSnapPlane() {
     painting.current = true;
     painted.current = new Set();
     lastCell.current = cell;
-    strokeRot.current = useGameStore.getState().build.rotation;
+    startCell.current = cell;
+    reorientedStart.current = false;
+
+    const fence = isFenceLike(defId);
+    strokeRot.current = fence
+      ? neighborFenceRotation(cell, useGameStore.getState().build.rotation)
+      : useGameStore.getState().build.rotation;
+
     setControlsEnabled(false);
     (e.target as unknown as { setPointerCapture?: (id: number) => void }).setPointerCapture?.(
       e.pointerId,
@@ -165,6 +220,8 @@ export function BuildSnapPlane() {
     e.stopPropagation();
     painting.current = false;
     lastCell.current = null;
+    startCell.current = null;
+    reorientedStart.current = false;
     painted.current = new Set();
     setControlsEnabled(true);
   };
@@ -232,11 +289,7 @@ function ClaimSnapPlane({ plotSize }: { plotSize: number }) {
     const cell = cellFromPoint(e.point, plotSize);
     if (!cell) return;
     if (controls && "enabled" in controls) controls.enabled = false;
-    const id = useGameStore.getState().createHabitat(cell);
-    if (!id) {
-      // Soft feedback: flash invalid by leaving hover red briefly — validity
-      // for claim is "can we enclose?" which createHabitat already checks.
-    }
+    useGameStore.getState().createHabitat(cell);
   };
 
   const onPointerUp = () => {
