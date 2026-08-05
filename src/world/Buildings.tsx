@@ -7,16 +7,24 @@
  */
 
 import type { ThreeEvent } from "@react-three/fiber";
+import { useMemo } from "react";
 
 import { useGameStore } from "../store/gameStore";
 import { getBuilding } from "../game/buildings";
 import { shopOpenFactor } from "../game/economy";
+import {
+  PARKING_STALLS_X,
+  PARKING_STALLS_Z,
+  parkingEntranceAnchor,
+  parkingLotCarCounts,
+} from "../game/parking";
 import type { Building, BuildingDef } from "../game/types";
 
 interface MeshProps {
   def: BuildingDef;
   w: number;
   d: number;
+  instanceId?: string;
 }
 
 const mat = (color: string, roughness = 0.85, metalness = 0) => (
@@ -619,16 +627,42 @@ function EntranceArchMesh({ def, w }: MeshProps) {
   );
 }
 
-function ParkingLotMesh({ def, w, d }: MeshProps) {
+function ParkingLotMesh({ def, w, d, instanceId }: MeshProps) {
+  const buildings = useGameStore((s) => s.buildings);
   const guestCount = useGameStore((s) => s.stats.guestCount);
-  const cars = Math.min(14, Math.max(2, Math.round(guestCount / 8)));
-  const stallsX = 6;
-  const stallsZ = 2;
+  const lot = instanceId ? buildings[instanceId] : undefined;
+  const carsByLot = parkingLotCarCounts(buildings, guestCount);
+  const carCount = instanceId ? (carsByLot[instanceId] ?? 0) : 0;
+  const entrance = parkingEntranceAnchor(buildings);
   const carColors = ["#c45c48", "#3d6a9a", "#d9c56a", "#4a4a52", "#6a8f5a", "#8a5a3a"];
   // Raised slab so bumpy terrain doesn't swallow the asphalt.
   const padH = 0.22;
   const padY = padH / 2;
   const surfaceY = padH + 0.01;
+
+  // Stall slots ordered by world distance to the entrance — nearest fill first.
+  const filledStalls = useMemo(() => {
+    const px = lot?.position.x ?? 0;
+    const pz = lot?.position.z ?? 0;
+    const angle = ((lot?.rotation ?? 0) * Math.PI) / 2;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const slots: { col: number; row: number; dist: number }[] = [];
+    for (let row = 0; row < PARKING_STALLS_Z; row++) {
+      for (let col = 0; col < PARKING_STALLS_X; col++) {
+        const lx = -w * 0.35 + (col / Math.max(1, PARKING_STALLS_X - 1)) * w * 0.7;
+        const lz = row === 0 ? -d * 0.22 : d * 0.22;
+        const wx = px + lx * cos - lz * sin;
+        const wz = pz + lx * sin + lz * cos;
+        const dx = wx - entrance.x;
+        const dz = wz - entrance.z;
+        slots.push({ col, row, dist: dx * dx + dz * dz });
+      }
+    }
+    slots.sort((a, b) => a.dist - b.dist);
+    return slots.slice(0, Math.max(0, Math.min(carCount, slots.length)));
+  }, [lot?.position.x, lot?.position.z, lot?.rotation, w, d, entrance.x, entrance.z, carCount]);
+
   return (
     <group>
       {/* Asphalt pad */}
@@ -647,8 +681,8 @@ function ParkingLotMesh({ def, w, d }: MeshProps) {
         {mat("#d9c56a", 0.7)}
       </mesh>
       {/* Stall lines */}
-      {Array.from({ length: stallsX + 1 }, (_, i) => {
-        const x = -w * 0.42 + (i / stallsX) * w * 0.84;
+      {Array.from({ length: PARKING_STALLS_X + 1 }, (_, i) => {
+        const x = -w * 0.42 + (i / PARKING_STALLS_X) * w * 0.84;
         return (
           <mesh key={`sx-${i}`} position={[x, surfaceY, -d * 0.22]} rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[0.06, d * 0.32]} />
@@ -656,8 +690,8 @@ function ParkingLotMesh({ def, w, d }: MeshProps) {
           </mesh>
         );
       })}
-      {Array.from({ length: stallsX + 1 }, (_, i) => {
-        const x = -w * 0.42 + (i / stallsX) * w * 0.84;
+      {Array.from({ length: PARKING_STALLS_X + 1 }, (_, i) => {
+        const x = -w * 0.42 + (i / PARKING_STALLS_X) * w * 0.84;
         return (
           <mesh key={`sz-${i}`} position={[x, surfaceY, d * 0.22]} rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[0.06, d * 0.32]} />
@@ -665,14 +699,12 @@ function ParkingLotMesh({ def, w, d }: MeshProps) {
           </mesh>
         );
       })}
-      {/* Parked cars (fill with daytime crowd) */}
-      {Array.from({ length: cars }, (_, i) => {
-        const col = i % stallsX;
-        const row = Math.floor(i / stallsX) % stallsZ;
-        const x = -w * 0.35 + (col / Math.max(1, stallsX - 1)) * w * 0.7;
+      {/* Parked cars — shared occupancy; nearest stalls (and lots) fill first */}
+      {filledStalls.map(({ col, row }, i) => {
+        const x = -w * 0.35 + (col / Math.max(1, PARKING_STALLS_X - 1)) * w * 0.7;
         const z = row === 0 ? -d * 0.22 : d * 0.22;
         return (
-          <group key={i} position={[x, surfaceY + 0.22, z]}>
+          <group key={`${col}-${row}`} position={[x, surfaceY + 0.22, z]}>
             <mesh castShadow>
               <boxGeometry args={[0.9, 0.35, 0.45]} />
               {mat(carColors[i % carColors.length]!, 0.55, 0.25)}
@@ -796,6 +828,7 @@ function BuildingMesh({
   w,
   d,
   fillLevel,
+  instanceId,
 }: MeshProps & { fillLevel?: number }) {
   switch (def.id) {
     case "fence-segment":
@@ -839,7 +872,7 @@ function BuildingMesh({
     case "entrance-arch":
       return <EntranceArchMesh def={def} w={w} d={d} />;
     case "parking-lot":
-      return <ParkingLotMesh def={def} w={w} d={d} />;
+      return <ParkingLotMesh def={def} w={w} d={d} instanceId={instanceId} />;
     case "keeper-hut":
       return <KeeperHutMesh def={def} w={w} d={d} />;
     case "vet-clinic":
@@ -889,7 +922,7 @@ function PlacedBuilding({ id }: { id: string }) {
       onClick={placing ? undefined : onClick}
       raycast={placing ? () => {} : undefined}
     >
-      <BuildingMesh def={def} w={w} d={d} fillLevel={building.fillLevel} />
+      <BuildingMesh def={def} w={w} d={d} fillLevel={building.fillLevel} instanceId={id} />
     </group>
   );
 }
