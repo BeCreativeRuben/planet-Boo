@@ -14,7 +14,7 @@ import { computeWelfare } from "../game/welfare";
 import { getStaffRole } from "../game/staffTypes";
 import { getBuilding } from "../game/buildings";
 import { newLedgerDay } from "../game/economy";
-import { spawnGuest } from "../game/simulation";
+import { footprintCenter, spawnGuest, worldToCell } from "../game/simulation";
 import { useGameStore } from "./gameStore";
 
 let seq = 0;
@@ -80,14 +80,15 @@ function makeStaff(role: StaffRole, i: number): Staff {
   };
 }
 
-function makeBuilding(defId: string, x: number, z: number): Building {
+function makeBuilding(defId: string, x: number, z: number, rotation = 0): Building {
   const def = getBuilding(defId);
+  const cell = { x: worldToCell(x), z: worldToCell(z) };
   return {
     instanceId: uid("b"),
     defId,
     category: def?.category ?? "scenery",
-    position: { x, z },
-    rotation: 0,
+    position: footprintCenter(cell, def, rotation),
+    rotation,
     condition: 86 + Math.floor(Math.random() * 12),
   };
 }
@@ -225,16 +226,22 @@ export function seedDemoParkIfEmpty(): boolean {
   ].forEach(([id, x, z]) => addB(id as string, x as number, z as number));
 
   // Fence rings + scenery so the 3D park reads as enclosures, not floating animals.
+  // Rotation 0 = east–west run (N/S edges); 1 = north–south run (E/W edges).
+  const addBRot = (defId: string, x: number, z: number, rotation: number) => {
+    const b = makeBuilding(defId, x, z, rotation);
+    extraBuildings[b.instanceId] = b;
+  };
   const ringFence = (cx: number, cz: number, half: number) => {
     for (let x = cx - half; x <= cx + half; x++) {
-      addB("fence-segment", x, cz - half);
-      addB("fence-segment", x, cz + half);
+      addBRot("fence-segment", x, cz - half, 0);
+      // Leave a gap on the north edge for the keeper gate.
+      if (x !== cx) addBRot("fence-segment", x, cz + half, 0);
     }
     for (let z = cz - half + 1; z < cz + half; z++) {
-      addB("fence-segment", cx - half, z);
-      addB("fence-segment", cx + half, z);
+      addBRot("fence-segment", cx - half, z, 1);
+      addBRot("fence-segment", cx + half, z, 1);
     }
-    addB("habitat-gate", cx, cz + half);
+    addBRot("habitat-gate", cx, cz + half, 0);
   };
   ringFence(-18, -6, 10);
   ringFence(16, -10, 11);

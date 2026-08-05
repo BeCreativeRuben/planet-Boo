@@ -153,6 +153,69 @@ export function collectFenceCells(buildings: Record<string, Building>): Set<stri
   return set;
 }
 
+/**
+ * Preferred fence/gate yaw from neighbouring wall cells.
+ * Mesh is thin on local Z: 0 = east–west run, 1 = north–south run.
+ */
+export function fenceRotationFromNeighbors(
+  cell: Vec2,
+  fenceCells: Set<string>,
+  fallback = 0,
+): number {
+  const ew =
+    (fenceCells.has(key(cell.x + 1, cell.z)) ? 1 : 0) +
+    (fenceCells.has(key(cell.x - 1, cell.z)) ? 1 : 0);
+  const ns =
+    (fenceCells.has(key(cell.x, cell.z + 1)) ? 1 : 0) +
+    (fenceCells.has(key(cell.x, cell.z - 1)) ? 1 : 0);
+  if (ew > ns) return 0;
+  if (ns > ew) return 1;
+  if (ew > 0) return 0;
+  if (ns > 0) return 1;
+  return fallback;
+}
+
+/** Stroke direction → fence rotation (0 = E–W, 1 = N–S). */
+export function fenceRotationForStroke(from: Vec2, to: Vec2, fallback = 0): number {
+  const dx = Math.abs(to.x - from.x);
+  const dz = Math.abs(to.z - from.z);
+  if (dx === 0 && dz === 0) return fallback;
+  return dx >= dz ? 0 : 1;
+}
+
+/**
+ * Snap fence/gate pieces onto cell centres and orient them along connected runs.
+ * Fixes demo seeds and older saves that stored every segment at rotation 0.
+ */
+export function alignFenceBuildings(
+  buildings: Record<string, Building>,
+): Record<string, Building> {
+  const fenceCells = collectFenceCells(buildings);
+  let changed = false;
+  const next: Record<string, Building> = { ...buildings };
+
+  for (const b of Object.values(buildings)) {
+    if (b.defId !== "fence-segment" && b.defId !== "habitat-gate") continue;
+    const cells = footprintCells(b);
+    if (cells.length === 0) continue;
+    const cell = cells[0]!;
+    const def = getBuilding(b.defId);
+    const rotation = fenceRotationFromNeighbors(cell, fenceCells, b.rotation);
+    const position = footprintCenter(cell, def, rotation);
+    if (
+      b.rotation === rotation &&
+      Math.abs(b.position.x - position.x) < 1e-6 &&
+      Math.abs(b.position.z - position.z) < 1e-6
+    ) {
+      continue;
+    }
+    next[b.instanceId] = { ...b, rotation, position };
+    changed = true;
+  }
+
+  return changed ? next : buildings;
+}
+
 export interface Enclosure {
   cells: Set<string>;
   bounded: boolean;

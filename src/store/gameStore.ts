@@ -50,6 +50,7 @@ import {
   START_PLOT_SIZE,
   PLOT_STEP,
   MAX_PLOT_SIZE,
+  alignFenceBuildings,
   canPlaceBuilding,
   collectFenceCells,
   floodFillEnclosure,
@@ -786,8 +787,10 @@ export function loadGame(): boolean {
     if (!raw) return false;
     const parsed = JSON.parse(raw) as SavedPark;
     if (!parsed?.state?.habitats) return false;
+    const buildings = alignFenceBuildings(parsed.state.buildings ?? {});
     useGameStore.setState({
       ...parsed.state,
+      buildings,
       plotSize: parsed.state.plotSize ?? START_PLOT_SIZE,
       paused: false,
       selection: null,
