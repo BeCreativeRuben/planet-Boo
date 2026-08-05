@@ -73,7 +73,7 @@ import {
   dailyStaffWages,
   dailyUpkeep,
   expectedDailyGuests,
-  parkingArrivalFactor,
+  parkingGuestCapacity,
   settleDay,
   transactionRevenue,
   shopOpenFactor,
@@ -585,9 +585,11 @@ export const useGameStore = create<ZooStore>((set, get) => ({
     }
 
     // --- guest arrivals: parties / families (none at night) ----------------
+    // Appeal sets demand; parking stalls are a hard shared capacity across all lots.
     const desired = Math.min(
       MAX_GUESTS,
-      Math.round(expectedDailyGuests(appeal, s.finances.ticketPrice) * parkingArrivalFactor(buildings)),
+      parkingGuestCapacity(buildings),
+      Math.round(expectedDailyGuests(appeal, s.finances.ticketPrice)),
     );
     let guestCount = Object.keys(guests).length;
     let ticketEarned = 0;

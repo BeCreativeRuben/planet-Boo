@@ -20,9 +20,13 @@ import {
   shopOpenLabel,
   transactionRevenue,
   vendorBoost,
-  parkingSummary,
   entranceOpenLabel,
 } from "../game/economy";
+import {
+  lotStallCapacity,
+  parkingLotCarCounts,
+  parkingSummary,
+} from "../game/parking";
 import {
   formatClockTime,
   getDayPhase,
@@ -461,10 +465,14 @@ function BuildingInspector({ id }: { id: string }) {
   const isTrash = b.defId === "trash-bin";
   const openFactor = shopOpenFactor(timeOfDay, b.condition);
   const openLabel = shopOpenLabel(openFactor, b.condition);
-  const parking = parkingSummary(buildings);
+  const guestCount = Object.keys(guests).length;
+  const parking = parkingSummary(buildings, guestCount);
+  const carsHere = isParking
+    ? (parkingLotCarCounts(buildings, guestCount)[b.instanceId] ?? 0)
+    : 0;
+  const stallsHere = isParking ? lotStallCapacity(b) : 0;
   const gateLabel = entranceOpenLabel(timeOfDay, b.condition);
   const vendorCount = Object.values(staff).filter((m) => m.role === "vendor").length;
-  const guestCount = Object.keys(guests).length;
   const estDay =
     isShop && def.revenuePerUse
       ? transactionRevenue(def, avgHappy) * guestCount * 0.12 * vendorBoost(vendorCount)
@@ -504,13 +512,17 @@ function BuildingInspector({ id }: { id: string }) {
               <dd>{parking.label}</dd>
             </div>
             <div>
+              <dt>Guest capacity</dt>
+              <dd>{parking.capacity}</dd>
+            </div>
+            <div>
               <dt>Ticket</dt>
               <dd>${ticketPrice}</dd>
             </div>
           </dl>
           <p className="inspector__note">
-            Guests arrive through parking. Expand south for more lot space, and keep
-            asphalt maintained so crowds keep coming.
+            Guests arrive through parking. More lots raise capacity — spaces nearest
+            the gate fill first. Keep asphalt maintained so crowds keep coming.
           </p>
         </>
       )}
@@ -532,17 +544,30 @@ function BuildingInspector({ id }: { id: string }) {
               <dd>{parking.lots}</dd>
             </div>
             <div>
-              <dt>Avg condition</dt>
-              <dd>{parking.avgCondition}%</dd>
+              <dt>Cars here</dt>
+              <dd>
+                {carsHere}/{stallsHere}
+              </dd>
             </div>
             <div>
-              <dt>Arrival boost</dt>
-              <dd>×{parking.factor.toFixed(2)}</dd>
+              <dt>Parked (all)</dt>
+              <dd>
+                {parking.carsParked}/{parking.stalls}
+              </dd>
+            </div>
+            <div>
+              <dt>Guest capacity</dt>
+              <dd>{parking.capacity}</dd>
+            </div>
+            <div>
+              <dt>Condition</dt>
+              <dd>{Math.round(b.condition)}%</dd>
             </div>
           </dl>
           <p className="inspector__note">
-            Hire mechanics to patch cracks. Place extra lots on owned land (Guest tab)
-            after expanding.
+            All lots share one occupancy pool — spaces closer to the entrance fill
+            first. Hire mechanics to patch cracks; place extra lots (Guest tab) after
+            expanding for more capacity.
           </p>
         </>
       )}

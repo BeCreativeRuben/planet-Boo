@@ -254,7 +254,7 @@ export const BUILDINGS: BuildingDef[] = [
     color: "#5a5e66",
     icon: "🅿️",
     description:
-      "Visitor parking. Condition and capacity gate how many guests can arrive. Mechanics keep asphalt patched; expand south for more lot space.",
+      "Visitor parking. Each lot adds stalls that raise guest capacity. Cars fill spaces nearest the entrance first across all lots. Mechanics keep asphalt patched.",
     upkeep: 18,
   },
 

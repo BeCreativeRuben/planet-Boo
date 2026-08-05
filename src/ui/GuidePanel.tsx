@@ -284,9 +284,10 @@ const CONTENT: Record<SectionId, ReactNode> = {
           park is empty. Speed up overnight if you&apos;d rather jump to dawn.
         </li>
         <li>
-          <strong>Parking</strong> — arrivals scale with parking condition and how many
-          lots you&apos;ve built. Expand south from Finances, place extra lots (Guest tab),
-          and hire mechanics so asphalt doesn&apos;t choke the gates.
+          <strong>Parking</strong> — stall capacity caps how many guests can visit.
+          All lots share one pool of cars; spaces nearest the entrance fill first.
+          Expand south from Finances, place extra lots (Guest tab), and hire mechanics
+          so asphalt doesn&apos;t choke the gates.
         </li>
       </ul>
       <p className="guide__tip">
