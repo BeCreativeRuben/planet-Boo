@@ -413,7 +413,8 @@ export function wanderAnimal(animal: Animal, habitat: Habitat | undefined, dt: n
   let nz = animal.position.z + Math.sin(m.heading) * speed * dt;
 
   if (habitat) {
-    const pad = 1.2;
+    // Stay clearly inside the fence line (bounds already exclude fence cells).
+    const pad = 0.85;
     const { min, max } = habitat.bounds;
     if (nx < min.x + pad || nx > max.x - pad) {
       m.heading = Math.PI - m.heading;
@@ -451,17 +452,85 @@ const dist2 = (a: Vec2, b: Vec2): number => {
   return dx * dx + dz * dz;
 };
 
+/** Is a world point inside a half-open AABB? */
+export function pointInBounds(p: Vec2, b: Bounds, pad = 0): boolean {
+  return (
+    p.x >= b.min.x + pad &&
+    p.x < b.max.x - pad &&
+    p.z >= b.min.z + pad &&
+    p.z < b.max.z - pad
+  );
+}
+
+export function pointInAnyBounds(p: Vec2, boxes: Bounds[], pad = 0): boolean {
+  for (const b of boxes) {
+    if (pointInBounds(p, b, pad)) return true;
+  }
+  return false;
+}
+
+/**
+ * Snap each habitat's bounds to the closed fence ring around its centre.
+ * Fixes older saves / demo parks whose AABB overran the timber walls.
+ */
+export function realignHabitatsToFences(
+  habitats: Record<string, Habitat>,
+  buildings: Record<string, Building>,
+): Record<string, Habitat> {
+  const fenceCells = collectFenceCells(buildings);
+  if (fenceCells.size === 0) return habitats;
+
+  let changed = false;
+  const next: Record<string, Habitat> = { ...habitats };
+  for (const [id, h] of Object.entries(habitats)) {
+    const cx = (h.bounds.min.x + h.bounds.max.x) / 2;
+    const cz = (h.bounds.min.z + h.bounds.max.z) / 2;
+    let seed = { x: worldToCell(cx), z: worldToCell(cz) };
+    // If the centre landed on a fence post, step toward park origin.
+    if (fenceCells.has(`${seed.x},${seed.z}`)) {
+      seed = {
+        x: seed.x + (cx >= 0 ? -1 : 1),
+        z: seed.z + (cz >= 0 ? -1 : 1),
+      };
+    }
+    const enclosure = floodFillEnclosure(seed, fenceCells);
+    if (!enclosure.bounded || enclosure.cells.size < 4) continue;
+    const w = enclosure.bounds.max.x - enclosure.bounds.min.x;
+    const d = enclosure.bounds.max.z - enclosure.bounds.min.z;
+    next[id] = {
+      ...h,
+      bounds: enclosure.bounds,
+      area: Math.max(1, Math.round(w * d)),
+      fenced: true,
+    };
+    changed = true;
+  }
+  return changed ? next : habitats;
+}
+
 /**
  * Advance a guest one frame along the park's paths. Returns a new guest with an
  * updated position, target and patience. Happiness / spending are the store's
  * job; this only handles movement.
+ *
+ * `blocked` habitat AABBs are treated as off-limits — guests won't pick
+ * waypoints inside them or walk through them.
  */
-export function stepGuest(guest: Guest, waypoints: Vec2[], dt: number): Guest {
+export function stepGuest(
+  guest: Guest,
+  waypoints: Vec2[],
+  dt: number,
+  blocked: Bounds[] = [],
+): Guest {
+  const outside = (p: Vec2) => !pointInAnyBounds(p, blocked);
+  const openWaypoints = blocked.length ? waypoints.filter(outside) : waypoints;
+
   let target = guest.target;
+  if (target && !outside(target)) target = null;
 
   const reached = target ? dist2(guest.position, target) < 1.2 : true;
-  if ((!target || reached) && waypoints.length) {
-    target = waypoints[Math.floor(Math.random() * waypoints.length)];
+  if ((!target || reached) && openWaypoints.length) {
+    target = openWaypoints[Math.floor(Math.random() * openWaypoints.length)]!;
   }
 
   let position = guest.position;
@@ -470,9 +539,29 @@ export function stepGuest(guest: Guest, waypoints: Vec2[], dt: number): Guest {
     const dz = target.z - guest.position.z;
     const len = Math.hypot(dx, dz) || 1;
     const speed = 1.4; // metres / second
-    position = {
+    const nextPos = {
       x: guest.position.x + (dx / len) * speed * dt,
       z: guest.position.z + (dz / len) * speed * dt,
+    };
+    if (outside(nextPos)) {
+      position = nextPos;
+    } else {
+      // Hit an enclosure — abandon this target and slide along the edge.
+      target = null;
+      const slide = { x: guest.position.x + (dx / len) * 0.2, z: guest.position.z };
+      if (outside(slide)) position = slide;
+      else {
+        const slideZ = { x: guest.position.x, z: guest.position.z + (dz / len) * 0.2 };
+        if (outside(slideZ)) position = slideZ;
+      }
+    }
+  }
+
+  // If somehow already inside (e.g. old save), nudge toward park centre.
+  if (!outside(position)) {
+    position = {
+      x: position.x * 0.92,
+      z: position.z * 0.92 + (position.z >= 0 ? 0.4 : -0.4),
     };
   }
 

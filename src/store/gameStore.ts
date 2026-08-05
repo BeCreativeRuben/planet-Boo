@@ -70,6 +70,8 @@ import {
   stepGuest,
   updateHabitatsFromBuildings,
   wanderAnimal,
+  realignHabitatsToFences,
+  pointInAnyBounds,
 } from "../game/simulation";
 
 /* -------------------------------------------------------------------------- */
@@ -311,11 +313,14 @@ function computeAppeal(s: SimSlice): number {
 
 /** World-space centres of every guest path / amenity tile (guest waypoints). */
 function pathWaypoints(s: SimSlice): Vec2[] {
+  const blocked = Object.values(s.habitats).map((h) => h.bounds);
   const pts: Vec2[] = [];
   for (const b of Object.values(s.buildings)) {
-    if (b.defId === "path" || b.category === "guest") {
-      pts.push({ x: b.position.x, z: b.position.z });
-    }
+    if (b.defId !== "path" && b.category !== "guest") continue;
+    const p = { x: b.position.x, z: b.position.z };
+    // Keep guests on public paths — never route through enclosures.
+    if (pointInAnyBounds(p, blocked, 0.25)) continue;
+    pts.push(p);
   }
   return pts;
 }
@@ -450,11 +455,12 @@ export const useGameStore = create<ZooStore>((set, get) => ({
 
     // --- guests: move, age out, keep happy ---------------------------------
     const waypoints = pathWaypoints(s);
+    const blockedHabitats = Object.values(habitats).map((h) => h.bounds);
     const appeal = computeAppeal(s);
     const targetHappy = clamp(45 + appeal, 0, 100);
     const guests: Record<string, Guest> = {};
     for (const g of Object.values(s.guests)) {
-      const moved = stepGuest(g, waypoints, sdt);
+      const moved = stepGuest(g, waypoints, sdt, blockedHabitats);
       if (moved.patience <= 0) continue; // guest goes home
       const happiness = moved.happiness + (targetHappy - moved.happiness) * 0.4 * sdt;
       guests[g.id] = { ...moved, happiness: clamp(happiness, 0, 100) };
@@ -914,9 +920,24 @@ export function loadGame(): boolean {
     const parsed = JSON.parse(raw) as SavedPark;
     if (!parsed?.state?.habitats) return false;
     const buildings = alignFenceBuildings(parsed.state.buildings ?? {});
+    const habitats = realignHabitatsToFences(parsed.state.habitats ?? {}, buildings);
+    // Pull animals back inside realigned bounds if an old save left them outside.
+    const animals: Record<string, Animal> = { ...(parsed.state.animals ?? {}) };
+    for (const [id, a] of Object.entries(animals)) {
+      const h = a.habitatId ? habitats[a.habitatId] : undefined;
+      if (!h) continue;
+      const pad = 0.85;
+      const x = Math.min(h.bounds.max.x - pad, Math.max(h.bounds.min.x + pad, a.position.x));
+      const z = Math.min(h.bounds.max.z - pad, Math.max(h.bounds.min.z + pad, a.position.z));
+      if (x !== a.position.x || z !== a.position.z) {
+        animals[id] = { ...a, position: { x, z } };
+      }
+    }
     useGameStore.setState({
       ...parsed.state,
       buildings,
+      habitats,
+      animals,
       plotSize: parsed.state.plotSize ?? START_PLOT_SIZE,
       paused: false,
       selection: null,
