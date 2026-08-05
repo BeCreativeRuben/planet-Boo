@@ -1059,6 +1059,124 @@ button {
   font-size: 0.88rem;
 }
 
+/*  Animal overview                                                           */
+/* -------------------------------------------------------------------------- */
+
+.overview {
+  width: min(780px, 100%);
+}
+.overview__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+.overview__meta p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.88rem;
+}
+.overview__warn {
+  color: #e0655a;
+  font-weight: 700;
+}
+.overview__search {
+  flex: 1 1 200px;
+  max-width: 280px;
+  padding: 0.45rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid var(--stroke);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text);
+  font-size: 0.88rem;
+}
+.overview__search::placeholder {
+  color: var(--text-dim);
+}
+.overview__empty {
+  margin: 1.5rem 0;
+  text-align: center;
+  color: var(--text-dim);
+}
+.overview__table-wrap {
+  overflow: auto;
+  max-height: min(58vh, 520px);
+  border-radius: 12px;
+  border: 1px solid var(--stroke);
+}
+.overview__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.overview__table th,
+.overview__table td {
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+  white-space: nowrap;
+}
+.overview__table thead {
+  position: sticky;
+  top: 0;
+  background: var(--panel-solid);
+  z-index: 1;
+}
+.overview__table th {
+  border-bottom: 1px solid var(--stroke);
+}
+.overview__th {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0;
+  cursor: pointer;
+}
+.overview__th--on,
+.overview__th:hover {
+  color: var(--text);
+}
+.overview__row {
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.overview__row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.overview__row--alert {
+  background: rgba(224, 101, 90, 0.08);
+}
+.overview__row--alert:hover {
+  background: rgba(224, 101, 90, 0.14);
+}
+.overview__row td {
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  font-variant-numeric: tabular-nums;
+}
+.overview__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 700;
+}
+.overview__tag {
+  margin-left: 0.25rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(224, 101, 90, 0.25);
+  color: #f0b0a9;
+}
+
 /* --- Responsive ------------------------------------------------------------ */
 
 @media (max-width: 720px) {
