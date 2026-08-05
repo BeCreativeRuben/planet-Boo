@@ -24,6 +24,7 @@ import {
   entranceOpenLabel,
 } from "../game/economy";
 import {
+  formatClockTime,
   getDayPhase,
   isNightPhase,
   phaseHint,
@@ -185,11 +186,16 @@ function TopBar() {
         </span>
       </div>
 
-      <div className="stat" title={phaseHint(phase)}>
+      <div
+        className="stat stat--clock"
+        title={`${phaseHint(phase)} · Day ${day}`}
+      >
         <span className="stat__label">
-          Day · {phaseLabel(phase)}
+          Day {day} · {phaseLabel(phase)}
         </span>
-        <span className="stat__value">{day}</span>
+        <span className="stat__value stat__value--clock">
+          {formatClockTime(timeOfDay)}
+        </span>
       </div>
 
       <div className="stat">

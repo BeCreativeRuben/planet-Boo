@@ -364,6 +364,14 @@ button {
 .stat--cash .stat__value {
   color: var(--amber-glow);
 }
+.stat--clock {
+  min-width: 96px;
+}
+.stat__value--clock {
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
 .stat--clickable {
   cursor: pointer;
   transition: background 0.15s ease;

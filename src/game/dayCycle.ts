@@ -70,6 +70,27 @@ export function phaseHint(phase: DayPhase): string {
   }
 }
 
+/**
+ * Map `timeOfDay` (0→1, midnight→midnight) to wall-clock hours/minutes.
+ * Midday (`t ≈ 0.5`) is 12:00.
+ */
+export function clockFromTimeOfDay(t: number): { hours: number; minutes: number } {
+  const x = ((t % 1) + 1) % 1
+  const totalMinutes = Math.floor(x * 24 * 60) % (24 * 60)
+  return {
+    hours: Math.floor(totalMinutes / 60),
+    minutes: totalMinutes % 60,
+  }
+}
+
+/** e.g. "6:42 AM" / "12:05 PM" */
+export function formatClockTime(t: number): string {
+  const { hours, minutes } = clockFromTimeOfDay(t)
+  const period = hours >= 12 ? "PM" : "AM"
+  const h12 = hours % 12 === 0 ? 12 : hours % 12
+  return `${h12}:${minutes.toString().padStart(2, "0")} ${period}`
+}
+
 /** Fraction of the food bar lost over one full day if nobody feeds. */
 export const HUNGER_DRAIN_PER_DAY = 0.55
 
