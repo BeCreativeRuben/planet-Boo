@@ -388,14 +388,24 @@ export function lifespanForSpecies(speciesId: string): number {
   const size = SPECIES_BY_ID[speciesId]?.size ?? "medium";
   switch (size) {
     case "small":
-      return 320;
+      return 420;
     case "medium":
-      return 420;
-    case "large":
       return 520;
+    case "large":
+      return 620;
     case "huge":
-      return 600;
+      return 720;
     default:
-      return 420;
+      return 520;
   }
+}
+
+/**
+ * Adult spawn age that always leaves remaining lifespan.
+ * Avoids animals dying of "old age" on the first care pulse.
+ */
+export function spawnAgeForLifespan(lifespan: number): number {
+  const min = Math.max(20, Math.floor(lifespan * 0.12));
+  const max = Math.max(min + 1, Math.floor(lifespan * 0.55));
+  return min + Math.floor(Math.random() * (max - min));
 }

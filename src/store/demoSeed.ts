@@ -18,7 +18,7 @@ import {
   spawnGuest,
   worldToCell,
 } from "../game/simulation";
-import { lifespanForSpecies } from "../game/care";
+import { lifespanForSpecies, spawnAgeForLifespan } from "../game/care";
 import { useGameStore } from "./gameStore";
 
 let seq = 0;
@@ -110,7 +110,7 @@ function makeAnimal(
       x: cx + (Math.random() - 0.5) * jitter,
       z: cz + (Math.random() - 0.5) * jitter,
     },
-    age: 200 + Math.floor(Math.random() * 400),
+    age: spawnAgeForLifespan(lifespanForSpecies(speciesId)),
     lifespan: lifespanForSpecies(speciesId),
     sex: Math.random() < 0.5 ? "male" : "female",
     health: 92,
@@ -252,13 +252,13 @@ export function seedDemoParkIfEmpty(): boolean {
       habitatName: "Mirror Lagoon",
       speciesId: "flamingo",
       name: "Rosa",
-      overrides: { welfare: 42, hunger: 33 },
+      overrides: { welfare: 42, hunger: 48 },
     },
     {
       habitatName: "Mirror Lagoon",
       speciesId: "flamingo",
       name: "Coral",
-      overrides: { welfare: 40, hunger: 30, health: 68 },
+      overrides: { welfare: 40, hunger: 44, health: 78 },
     },
     { habitatName: "Fern Glade", speciesId: "tiger", name: "Rajah" },
   ];

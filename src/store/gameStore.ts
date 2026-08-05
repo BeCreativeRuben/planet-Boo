@@ -34,6 +34,7 @@ import {
   applyDailyCare,
   deathMessage,
   lifespanForSpecies,
+  spawnAgeForLifespan,
   type AnimalDeath,
 } from "../game/care";
 import { BUILDINGS_BY_ID, getBuilding } from "../game/buildings";
@@ -781,7 +782,7 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       name: NAMES[Math.floor(Math.random() * NAMES.length)],
       habitatId,
       position,
-      age: 120 + Math.floor(Math.random() * 300),
+      age: spawnAgeForLifespan(lifespanForSpecies(speciesId)),
       lifespan: lifespanForSpecies(speciesId),
       sex: Math.random() < 0.5 ? "male" : "female",
       health: 95,
@@ -930,14 +931,28 @@ export function loadGame(): boolean {
     // Pull animals back inside realigned bounds if an old save left them outside.
     const animals: Record<string, Animal> = { ...(parsed.state.animals ?? {}) };
     for (const [id, a] of Object.entries(animals)) {
-      const h = a.habitatId ? habitats[a.habitatId] : undefined;
-      if (!h) continue;
-      const pad = 0.85;
-      const x = Math.min(h.bounds.max.x - pad, Math.max(h.bounds.min.x + pad, a.position.x));
-      const z = Math.min(h.bounds.max.z - pad, Math.max(h.bounds.min.z + pad, a.position.z));
-      if (x !== a.position.x || z !== a.position.z) {
-        animals[id] = { ...a, position: { x, z } };
+      let next = a;
+      const life = a.lifespan > 0 ? a.lifespan : lifespanForSpecies(a.speciesId);
+      // Older saves could spawn past lifespan — pull them back into a living age.
+      if (a.age >= life) {
+        next = {
+          ...next,
+          lifespan: life,
+          age: Math.floor(life * 0.45),
+        };
+      } else if (a.lifespan !== life) {
+        next = { ...next, lifespan: Math.max(life, a.age + 30) };
       }
+      const h = next.habitatId ? habitats[next.habitatId] : undefined;
+      if (h) {
+        const pad = 0.85;
+        const x = Math.min(h.bounds.max.x - pad, Math.max(h.bounds.min.x + pad, next.position.x));
+        const z = Math.min(h.bounds.max.z - pad, Math.max(h.bounds.min.z + pad, next.position.z));
+        if (x !== next.position.x || z !== next.position.z) {
+          next = { ...next, position: { x, z } };
+        }
+      }
+      animals[id] = next;
     }
     useGameStore.setState({
       ...parsed.state,
