@@ -69,7 +69,8 @@ export default function HUD() {
 
       {!landSelectOpen && (
         <div className="hud__mid">
-          <Inspector />
+          {/* Hide inspector while a build tab is open so the catalog isn't covered. */}
+          {!activeTab && <Inspector />}
           <Notifications />
         </div>
       )}
