@@ -24,6 +24,7 @@ import type {
   GameState,
   Guest,
   Habitat,
+  Litter,
   Staff,
   StaffRole,
   Vec2,
@@ -51,6 +52,12 @@ import {
 import { SPECIES_BY_ID } from "../game/species";
 import { getStaffRole } from "../game/staffTypes";
 import { computeWelfare } from "../game/welfare";
+import {
+  LITTER_DROP_RATE,
+  applyJanitorPulse,
+  disposeGuestTrash,
+  messHappinessPenalty,
+} from "../game/sanitation";
 import {
   applyPurchase,
   applyOperatingDelta,
@@ -248,6 +255,7 @@ function makeBuilding(defId: string, cell: Vec2, rotation = 0, habitatId?: strin
     customersToday: 0,
     salesLifetime: 0,
     customersLifetime: 0,
+    fillLevel: defId === "trash-bin" ? 0 : undefined,
   };
 }
 
@@ -278,6 +286,10 @@ function createInitialState(): GameState & ViewState {
   for (let z = o + START_PLOT_SIZE - 12; z >= o + START_PLOT_SIZE / 2; z -= 2) {
     add(makeBuilding("path", { x: o + START_PLOT_SIZE / 2 - 1, z }));
   }
+  // Litter bins along the entrance path.
+  add(makeBuilding("trash-bin", { x: o + START_PLOT_SIZE / 2 + 1, z: o + START_PLOT_SIZE - 14 }));
+  add(makeBuilding("trash-bin", { x: o + START_PLOT_SIZE / 2 - 3, z: o + START_PLOT_SIZE / 2 + 4 }));
+  add(makeBuilding("trash-bin", { x: o + START_PLOT_SIZE / 2 + 2, z: o + START_PLOT_SIZE / 2 - 2 }));
 
   return {
     tick: 0,
@@ -295,6 +307,7 @@ function createInitialState(): GameState & ViewState {
     guests: {},
     staff: {},
     buildings,
+    litter: {},
 
     unlockedSpecies: Object.keys(SPECIES_BY_ID),
 
@@ -480,6 +493,7 @@ export const useGameStore = create<ZooStore>((set, get) => ({
     let selection = s.selection;
     let focusAnimalId = s.focusAnimalId;
     let buildings: Record<string, Building> = { ...s.buildings };
+    let litter: Record<string, Litter> = { ...s.litter };
 
     if (doWelfare) {
       const careMult = night ? NIGHT_CARE_MULT : 1;
@@ -491,6 +505,12 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       const cleared = clearSelectionIfDead(selection, focusAnimalId, cared.deaths);
       selection = cleared.selection;
       focusAnimalId = cleared.focusAnimalId;
+
+      // Janitors empty bins and clear path litter (faster at night).
+      const sanitized = applyJanitorPulse(buildings, litter, staff, careMult);
+      buildings = sanitized.buildings;
+      litter = sanitized.litter;
+      staff = sanitized.staff;
 
       // Night shift: mechanics patch buildings while the park is empty.
       if (night) {
@@ -516,7 +536,8 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       expandBounds(h.bounds, GUEST_FENCE_CLEARANCE),
     );
     const appeal = computeAppeal(s);
-    const targetHappy = clamp(45 + appeal, 0, 100);
+    const messPenalty = messHappinessPenalty(buildings, litter);
+    const targetHappy = clamp(45 + appeal - messPenalty, 0, 100);
     const leaveMult = guestLeaveFactor(timeOfDay);
     const guests: Record<string, Guest> = {};
     for (const g of Object.values(s.guests)) {
@@ -526,6 +547,13 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       if (patience <= 0) continue; // guest goes home
       const happiness = moved.happiness + (targetHappy - moved.happiness) * 0.4 * sdt;
       guests[g.id] = { ...moved, patience, happiness: clamp(happiness, 0, 100) };
+
+      // Visitors drop trash — bins catch it when nearby, else ground litter.
+      if (Math.random() < LITTER_DROP_RATE * sdt) {
+        const dumped = disposeGuestTrash(moved.position, buildings, litter, () => uid("lit"));
+        buildings = dumped.buildings;
+        litter = dumped.litter;
+      }
     }
 
     // --- guest arrivals (none at night; limited by parking) ----------------
@@ -602,6 +630,7 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       staff,
       guests,
       buildings,
+      litter,
       deathNotices,
       selection,
       focusAnimalId,
@@ -979,6 +1008,7 @@ interface SavedPark {
     | "stats"
   > & {
     ownedParcels?: string[];
+    litter?: Record<string, Litter>;
   };
 }
 
@@ -1012,6 +1042,7 @@ export function saveGame(): boolean {
         guests: s.guests,
         staff: s.staff,
         buildings: s.buildings,
+        litter: s.litter,
         unlockedSpecies: s.unlockedSpecies,
         stats: s.stats,
       },
@@ -1079,13 +1110,21 @@ export function loadGame(): boolean {
       }
     }
 
+    // Ensure trash bins have a fill level; seed litter empty for old saves.
+    const buildingsNormalized: Record<string, Building> = {};
+    for (const [id, b] of Object.entries(buildingsWithParking)) {
+      buildingsNormalized[id] =
+        b.defId === "trash-bin" && b.fillLevel == null ? { ...b, fillLevel: 0 } : b;
+    }
+
     useGameStore.setState({
       ...parsed.state,
-      buildings: buildingsWithParking,
+      buildings: buildingsNormalized,
       habitats,
       animals,
       ownedParcels,
       plotSize: extent.plotSize,
+      litter: parsed.state.litter ?? {},
       paused: false,
       selection: null,
       hoverCell: null,

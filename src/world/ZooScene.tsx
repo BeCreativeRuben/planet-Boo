@@ -15,6 +15,7 @@ import { Terrain } from "./Terrain";
 import { Buildings } from "./Buildings";
 import { Animals } from "./Animals";
 import { Guests } from "./Guests";
+import { LitterLayer } from "./Litter";
 import { BuildGhost } from "./BuildGhost";
 import { BuildSnapPlane } from "./BuildSnapPlane";
 import { HabitatHighlights } from "./HabitatHighlights";
@@ -111,6 +112,7 @@ export function ZooScene() {
       <Buildings />
       <Animals />
       <Guests />
+      <LitterLayer />
       <BuildSnapPlane />
       <BuildGhost />
 

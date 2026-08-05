@@ -1257,6 +1257,117 @@ button {
   color: #f0b0a9;
 }
 
+.overview__lede,
+.overview__hint {
+  margin: 0 0 0.85rem;
+  color: var(--text-dim);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+.overview__hint {
+  margin-top: 0.85rem;
+  margin-bottom: 0;
+}
+
+.jobs-overview {
+  width: min(720px, 100%);
+  max-height: min(86vh, 900px);
+  overflow: auto;
+}
+.jobs-overview__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-bottom: 0.9rem;
+}
+.jobs-overview__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.jobs-overview__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.jobs-card {
+  padding: 0.7rem 0.8rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.jobs-card__head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.65rem;
+  align-items: start;
+}
+.jobs-card__icon {
+  font-size: 1.45rem;
+  line-height: 1;
+}
+.jobs-card__head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.jobs-card__head p {
+  margin: 0.15rem 0 0;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+}
+.jobs-card__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-align: right;
+}
+.jobs-card__duties {
+  margin: 0.55rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.jobs-card__roster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+.jobs-card__chip {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.jobs-card__chip:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 720px) {
+  .jobs-overview__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .jobs-card__head {
+    grid-template-columns: auto 1fr;
+  }
+  .jobs-card__meta {
+    grid-column: 1 / -1;
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
 /* --- Responsive ------------------------------------------------------------ */
 
 @media (max-width: 720px) {

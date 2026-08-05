@@ -66,7 +66,7 @@ export type BuildingCategory =
   | "staff"
   | "scenery";
 
-export type StaffRole = "keeper" | "vendor" | "vet" | "mechanic";
+export type StaffRole = "keeper" | "cleaner" | "vendor" | "vet" | "mechanic" | "janitor";
 
 /* -------------------------------------------------------------------------- */
 /*  Static data definitions                                                   */
@@ -196,6 +196,13 @@ export interface Guest {
   patience: number;
 }
 
+export interface Litter {
+  id: string;
+  position: Vec2;
+  /** Relative mess size (1..5). */
+  amount: number;
+}
+
 export interface Staff {
   id: string;
   role: StaffRole;
@@ -228,6 +235,8 @@ export interface Building {
   salesLifetime?: number;
   /** All-time guest transactions since placement (shops / stalls only). */
   customersLifetime?: number;
+  /** 0..100 how full a trash bin is (litter bins only). */
+  fillLevel?: number;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -325,6 +334,8 @@ export interface GameState {
   guests: Record<string, Guest>;
   staff: Record<string, Staff>;
   buildings: Record<string, Building>;
+  /** Ground litter piles dropped by guests when bins are full or missing. */
+  litter: Record<string, Litter>;
 
   unlockedSpecies: string[];
 

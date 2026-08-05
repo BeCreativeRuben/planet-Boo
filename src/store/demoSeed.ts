@@ -155,6 +155,7 @@ function makeBuildingAtCell(
     customersToday: 0,
     salesLifetime: 0,
     customersLifetime: 0,
+    fillLevel: defId === "trash-bin" ? Math.floor(Math.random() * 45) : undefined,
   };
 }
 
@@ -189,6 +190,9 @@ export function seedDemoParkIfEmpty(): boolean {
       ["gift-shop", 5, 8],
       ["toilet", -6, 8],
       ["bench", 0, 4],
+      ["trash-bin", -2, 5],
+      ["trash-bin", 3, 9],
+      ["trash-bin", -5, 11],
       ["info-board", 1, 10],
       ["keeper-hut", 0, 14],
     ] as Array<[string, number, number]>
@@ -320,7 +324,7 @@ export function seedDemoParkIfEmpty(): boolean {
   }
 
   const staff: Record<string, Staff> = {};
-  (["keeper", "keeper", "vet", "vendor"] as StaffRole[]).forEach((r, i) => {
+  (["keeper", "keeper", "cleaner", "janitor", "vet", "vendor"] as StaffRole[]).forEach((r, i) => {
     const m = makeStaff(r, i);
     staff[m.id] = m;
   });

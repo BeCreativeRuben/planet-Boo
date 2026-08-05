@@ -16,7 +16,17 @@ export const STAFF_ROLES: StaffRoleDef[] = [
     wage: 120,
     hireCost: 400,
     description:
-      "Feeds animals, refreshes enrichment and cleans enclosures — the backbone of good welfare.",
+      "Feeds animals and refreshes enrichment — the backbone of good welfare. Light tidy-up while feeding.",
+  },
+  {
+    role: "cleaner",
+    name: "Habitat Cleaner",
+    icon: "🧹",
+    color: "#4a8f6a",
+    wage: 100,
+    hireCost: 320,
+    description:
+      "Deep-cleans enclosures: scrapes pads, refreshes bedding, and restores habitat hygiene.",
   },
   {
     role: "vet",
@@ -27,6 +37,16 @@ export const STAFF_ROLES: StaffRoleDef[] = [
     hireCost: 700,
     description:
       "Diagnoses and treats sick animals, restoring health before problems spread.",
+  },
+  {
+    role: "janitor",
+    name: "Janitor",
+    icon: "🗑️",
+    color: "#5a6a7a",
+    wage: 85,
+    hireCost: 280,
+    description:
+      "Empties litter bins and picks up trash guests leave on paths — keeps the park welcoming.",
   },
   {
     role: "vendor",
@@ -61,3 +81,76 @@ export const STAFF_ROLES_BY_ID: Record<StaffRole, StaffRoleDef> =
 export function getStaffRole(role: StaffRole): StaffRoleDef {
   return STAFF_ROLES_BY_ID[role];
 }
+
+/** Long-form copy for the Jobs overview menu. */
+export const JOB_OVERVIEWS: Array<{
+  role: StaffRole;
+  title: string;
+  summary: string;
+  duties: string[];
+}> = [
+  {
+    role: "keeper",
+    title: "Zookeeper",
+    summary: "Animal care first — feeding and enrichment.",
+    duties: [
+      "Feeds the hungriest animals on a regular pulse",
+      "Gives a light hygiene boost while working an enclosure",
+      "Works faster at night during the maintenance shift",
+      "Benefits from a Keeper Hut placed near habitats",
+    ],
+  },
+  {
+    role: "cleaner",
+    title: "Habitat Cleaner",
+    summary: "Keeps enclosures spotless so welfare stays high.",
+    duties: [
+      "Deep-cleans the dirtiest habitats each care pulse",
+      "Counters daily hygiene decay inside enclosures",
+      "Pairs well with keepers — feeders + scrubbers",
+      "Essential once you run several large habitats",
+    ],
+  },
+  {
+    role: "vet",
+    title: "Veterinarian",
+    summary: "Medical care for sick and injured animals.",
+    duties: [
+      "Treats low-health and sick animals",
+      "Prevents deaths from illness and starvation fallout",
+      "Stronger with a Veterinary Clinic on site",
+      "Hire early if you keep endangered or high-cost species",
+    ],
+  },
+  {
+    role: "janitor",
+    title: "Janitor",
+    summary: "Guest-path cleanliness — bins and ground litter.",
+    duties: [
+      "Empties the fullest litter bins",
+      "Picks up trash piles guests leave on paths",
+      "Stops mess from dragging guest happiness down",
+      "Place litter bins along busy paths so guests can dispose properly",
+    ],
+  },
+  {
+    role: "vendor",
+    title: "Vendor",
+    summary: "Runs shops so guests actually spend.",
+    duties: [
+      "Boosts food, drink, and gift shop throughput",
+      "Raises estimated daily sales in the inspector",
+      "Hire after stalls are placed — idle vendors still cost wages",
+    ],
+  },
+  {
+    role: "mechanic",
+    title: "Mechanic",
+    summary: "Keeps buildings and fences from falling apart.",
+    duties: [
+      "Slows daily condition wear on all facilities",
+      "Repairs buildings faster during the night shift",
+      "Critical for parking lots, shops, and fence rings",
+    ],
+  },
+];

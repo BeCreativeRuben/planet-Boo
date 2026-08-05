@@ -36,12 +36,18 @@ const KEEPER_FEED_SLOTS = 4;
 const KEEPER_FEED_PULSE = 10;
 /** Extra hunger restored per animal at day-end care. */
 const KEEPER_FEED_DAY = 18;
-/** Hygiene restored per habitat a keeper tends (pulse). */
-const KEEPER_CLEAN_PULSE = 1.2;
-/** Hygiene restored per habitat at day end. */
-const KEEPER_CLEAN_DAY = 6;
+/** Hygiene restored per habitat a keeper tends (pulse) — light tidy while feeding. */
+const KEEPER_CLEAN_PULSE = 0.6;
+/** Hygiene restored per habitat at day end (keeper incidental). */
+const KEEPER_CLEAN_DAY = 2.5;
+/** Hygiene restored per habitat a dedicated cleaner tends (pulse). */
+const CLEANER_CLEAN_PULSE = 8;
+/** Hygiene restored per habitat at day end (cleaner). */
+const CLEANER_CLEAN_DAY = 18;
+/** Habitats one cleaner can scrub per pulse. */
+const CLEANER_SLOTS = 3;
 /** Hygiene decay each day when uncleaned. */
-const HYGIENE_DECAY_DAY = 3;
+const HYGIENE_DECAY_DAY = 4;
 
 /** Animals one vet can treat per pulse. */
 const VET_SLOTS = 3;
@@ -116,7 +122,7 @@ function assignStaffTargets(
   const next: Record<string, Staff> = { ...staff };
   let i = 0;
   for (const m of Object.values(staff)) {
-    if (m.role !== "keeper" && m.role !== "vet") {
+    if (m.role !== "keeper" && m.role !== "vet" && m.role !== "cleaner") {
       next[m.id] = m;
       continue;
     }
@@ -208,6 +214,51 @@ function applyHealing(
   }
 
   return { animals: nextAnimals, staff: nextStaff };
+}
+
+/** Prefer dirtiest habitats that still house animals. */
+function dirtiestHabitats(habitats: Habitat[], limit: number): Habitat[] {
+  return [...habitats]
+    .filter((h) => h.animalIds.length > 0)
+    .sort((a, b) => a.hygiene - b.hygiene)
+    .slice(0, limit);
+}
+
+/**
+ * Dedicated habitat cleaners restore hygiene on the messiest enclosures.
+ * Keepers still contribute a light tidy while feeding.
+ */
+function applyHabitatCleaning(
+  habitats: Record<string, Habitat>,
+  staff: Record<string, Staff>,
+  cleanAmount: number,
+): { habitats: Record<string, Habitat>; staff: Record<string, Staff> } {
+  const cleaners = listByRole(staff, "cleaner");
+  if (cleaners.length === 0) return { habitats, staff };
+
+  const nextHabitats: Record<string, Habitat> = { ...habitats };
+  const nextStaff: Record<string, Staff> = { ...staff };
+  const scrubbed = new Set<string>();
+
+  for (const cleaner of cleaners) {
+    const pool = dirtiestHabitats(
+      Object.values(nextHabitats).filter((h) => !scrubbed.has(h.id)),
+      CLEANER_SLOTS,
+    );
+    let n = 0;
+    for (const h of pool) {
+      const hygiene = clamp(h.hygiene + cleanAmount);
+      nextHabitats[h.id] = { ...h, hygiene };
+      scrubbed.add(h.id);
+      n++;
+    }
+    nextStaff[cleaner.id] = {
+      ...cleaner,
+      energy: clamp(cleaner.energy - 2.5 - n * 0.8, 0, 100),
+    };
+  }
+
+  return { habitats: nextHabitats, staff: nextStaff };
 }
 
 function applyStarvationEffects(
@@ -341,10 +392,11 @@ export function applyCarePulse(
     KEEPER_FEED_PULSE * careMult,
     KEEPER_CLEAN_PULSE * careMult,
   );
-  let healed = applyHealing(fed.animals, fed.staff, buildings, VET_HEAL_PULSE * careMult);
+  let scrubbed = applyHabitatCleaning(fed.habitats, fed.staff, CLEANER_CLEAN_PULSE * careMult);
+  let healed = applyHealing(fed.animals, scrubbed.staff, buildings, VET_HEAL_PULSE * careMult);
   const starved = applyStarvationEffects(healed.animals, "pulse");
   const deaths = collectDeaths(starved);
-  const purged = purgeDeaths(starved, fed.habitats, deaths);
+  const purged = purgeDeaths(starved, scrubbed.habitats, deaths);
 
   // Tiny energy recovery between pulses so staff don't permanently deplete.
   nextStaff = recoverStaffEnergy(healed.staff, 1.2 * Math.max(1, careMult * 0.85));
@@ -379,10 +431,11 @@ export function applyDailyCare(
     KEEPER_FEED_DAY,
     KEEPER_CLEAN_DAY,
   );
-  const healed = applyHealing(fed.animals, fed.staff, buildings, VET_HEAL_DAY);
+  const scrubbed = applyHabitatCleaning(fed.habitats, fed.staff, CLEANER_CLEAN_DAY);
+  const healed = applyHealing(fed.animals, scrubbed.staff, buildings, VET_HEAL_DAY);
   const starved = applyStarvationEffects(healed.animals, "day");
   const deaths = collectDeaths(starved);
-  const purged = purgeDeaths(starved, fed.habitats, deaths);
+  const purged = purgeDeaths(starved, scrubbed.habitats, deaths);
 
   return {
     animals: purged.animals,
