@@ -20,7 +20,7 @@ export const BUILDINGS: BuildingDef[] = [
     icon: "🧱",
     description:
       "A one-metre run of sturdy timber fencing. Chain segments together to enclose a habitat.",
-    upkeep: 0.3,
+    upkeep: 0.05,
   },
   {
     id: "habitat-gate",
@@ -32,7 +32,7 @@ export const BUILDINGS: BuildingDef[] = [
     icon: "🚪",
     description:
       "A lockable gate that lets keepers enter an enclosure without breaking the fence line.",
-    upkeep: 0.5,
+    upkeep: 0.15,
   },
 
   /* --- Scenery ----------------------------------------------------------- */

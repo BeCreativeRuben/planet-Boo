@@ -4,6 +4,13 @@
  * Pure money maths: how many guests a park attracts, what they spend, what the
  * animals, staff and buildings cost to run, and how a day is settled into the
  * ledger. The store owns the numbers; these functions never mutate state.
+ *
+ * Cash model
+ * ----------
+ * Operating income (tickets, shops, donations) and operating costs (food,
+ * wages, upkeep) accrue into both the ledger *and* cash throughout the day.
+ * Capital purchases hit cash + capitalSpend immediately. At day end, running
+ * costs are snapped to exact daily totals and the ledger is archived.
  */
 
 import type {
@@ -89,6 +96,7 @@ export function createFinances(cash: number): Finances {
  * current ledger day. Returns a new finances object (never mutates).
  */
 export function applyPurchase(finances: Finances, cost: number): Finances {
+  if (cost <= 0) return finances;
   return {
     ...finances,
     cash: finances.cash - cost,
@@ -130,7 +138,8 @@ export function dailyUpkeep(buildings: Record<string, Building>): number {
   for (const b of Object.values(buildings)) {
     total += getBuilding(b.defId)?.upkeep ?? 0;
   }
-  return Math.round(total);
+  // Keep cents so a fence-heavy park still shows a non-zero burn.
+  return Math.round(total * 100) / 100;
 }
 
 /**
@@ -168,6 +177,43 @@ export function transactionRevenue(def: BuildingDef, guestHappiness: number): nu
 }
 
 /* -------------------------------------------------------------------------- */
+/*  In-day accrual                                                            */
+/* -------------------------------------------------------------------------- */
+
+export interface OperatingDelta {
+  ticketIncome: number;
+  shopIncome: number;
+  donationIncome: number;
+  animalCosts: number;
+  staffWages: number;
+  upkeep: number;
+}
+
+/** Apply an operating delta to both the ledger and cash. */
+export function applyOperatingDelta(finances: Finances, delta: OperatingDelta): Finances {
+  const net =
+    delta.ticketIncome +
+    delta.shopIncome +
+    delta.donationIncome -
+    delta.animalCosts -
+    delta.staffWages -
+    delta.upkeep;
+  return {
+    ...finances,
+    cash: finances.cash + net,
+    today: {
+      ...finances.today,
+      ticketIncome: finances.today.ticketIncome + delta.ticketIncome,
+      shopIncome: finances.today.shopIncome + delta.shopIncome,
+      donationIncome: finances.today.donationIncome + delta.donationIncome,
+      animalCosts: finances.today.animalCosts + delta.animalCosts,
+      staffWages: finances.today.staffWages + delta.staffWages,
+      upkeep: finances.today.upkeep + delta.upkeep,
+    },
+  };
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Day settlement                                                            */
 /* -------------------------------------------------------------------------- */
 
@@ -180,28 +226,29 @@ export interface DayTotals {
 }
 
 /**
- * Fold the accumulated `today` ledger plus end-of-day running costs into cash,
- * archive it to history, and open a fresh ledger for the next day.
+ * Archive today's ledger (snapping running costs to exact daily totals) and
+ * open a fresh ledger for the next day. Income/costs were already folded into
+ * cash during the day; only the snap difference is applied here.
  */
 export function settleDay(finances: Finances, totals: DayTotals): Finances {
+  const today = finances.today;
+  const foodAdj = totals.animalCosts - today.animalCosts;
+  const wageAdj = totals.staffWages - today.staffWages;
+  const upkeepAdj = totals.upkeep - today.upkeep;
+
   const settled: LedgerDay = {
-    ...finances.today,
-    animalCosts: finances.today.animalCosts + totals.animalCosts,
-    staffWages: finances.today.staffWages + totals.staffWages,
-    upkeep: finances.today.upkeep + totals.upkeep,
+    ...today,
+    animalCosts: totals.animalCosts,
+    staffWages: totals.staffWages,
+    upkeep: totals.upkeep,
   };
 
   const nextDay = settled.day + 1;
   const history = [...finances.history, settled].slice(-30);
 
-  // Capital spend (adoptions, construction) is deducted from cash the moment it
-  // happens, so only the operating result is folded into cash at settlement.
-  const operatingNet =
-    ledgerIncome(settled) - settled.animalCosts - settled.staffWages - settled.upkeep;
-
   return {
     ...finances,
-    cash: finances.cash + operatingNet,
+    cash: finances.cash - foodAdj - wageAdj - upkeepAdj,
     conservationPoints:
       finances.conservationPoints + (totals.conservationEarned ?? 0),
     today: newLedgerDay(nextDay),

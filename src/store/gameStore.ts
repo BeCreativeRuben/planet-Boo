@@ -42,6 +42,7 @@ import { getStaffRole } from "../game/staffTypes";
 import { computeWelfare } from "../game/welfare";
 import {
   applyPurchase,
+  applyOperatingDelta,
   createFinances,
   dailyAnimalCosts,
   dailyDonations,
@@ -481,7 +482,7 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       }
     }
 
-    // --- income accrual (folded into the ledger; cash settles at day end) --
+    // --- income + running costs accrue into ledger AND cash continuously ---
     const avgHappiness = guestCount
       ? Object.values(guests).reduce((n, g) => n + g.happiness, 0) / guestCount
       : 0;
@@ -496,13 +497,18 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       if (b.defId === "info-board") infoBoards++;
     }
     const donationPerDay = dailyDonations(guestCount, avgHappiness, infoBoards);
+    const foodPerDay = dailyAnimalCosts(animals);
+    const wagePerDay = dailyStaffWages(staff);
+    const upkeepPerDay = dailyUpkeep(s.buildings);
 
-    const today = {
-      ...s.finances.today,
-      ticketIncome: s.finances.today.ticketIncome + ticketEarned,
-      shopIncome: s.finances.today.shopIncome + shopPerDay * dayFrac,
-      donationIncome: s.finances.today.donationIncome + donationPerDay * dayFrac,
-    };
+    const finances = applyOperatingDelta(s.finances, {
+      ticketIncome: ticketEarned,
+      shopIncome: shopPerDay * dayFrac,
+      donationIncome: donationPerDay * dayFrac,
+      animalCosts: foodPerDay * dayFrac,
+      staffWages: wagePerDay * dayFrac,
+      upkeep: upkeepPerDay * dayFrac,
+    });
 
     set({
       tick,
@@ -514,7 +520,7 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       deathNotices,
       selection,
       focusAnimalId,
-      finances: { ...s.finances, today },
+      finances,
       stats: {
         ...s.stats,
         guestCount,
