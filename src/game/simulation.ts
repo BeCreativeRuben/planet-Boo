@@ -447,6 +447,12 @@ export function spawnGuest(id: string, index: number, pos: Vec2): Guest {
     happiness: 70,
     wallet: 20 + Math.random() * 40,
     patience: 60 + Math.random() * 60,
+    groupId: id,
+    kind: "adult",
+    leader: true,
+    facing: Math.PI,
+    activity: "walk",
+    viewTimer: 0,
   };
 }
 

@@ -279,8 +279,9 @@ const CONTENT: Record<SectionId, ReactNode> = {
         </li>
         <li>
           <strong>Park hours</strong> — guests arrive through the day and clear out at
-          dusk. Shops close at night; keepers and mechanics work faster while the park
-          is empty. Speed up overnight if you&apos;d rather jump to dawn.
+          dusk. Families and couples stroll to habitats, stop to watch animals, then
+          move on. Shops close at night; keepers and mechanics work faster while the
+          park is empty. Speed up overnight if you&apos;d rather jump to dawn.
         </li>
         <li>
           <strong>Parking</strong> — arrivals scale with parking condition and how many

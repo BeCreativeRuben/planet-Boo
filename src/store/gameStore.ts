@@ -59,6 +59,12 @@ import {
   messHappinessPenalty,
 } from "../game/sanitation";
 import {
+  buildViewpoints,
+  migrateGuest,
+  spawnGuestParty,
+  stepGuestBehavior,
+} from "../game/guests";
+import {
   applyPurchase,
   applyOperatingDelta,
   createFinances,
@@ -86,8 +92,6 @@ import {
   plotOffset,
   cellCenter,
   worldToCell,
-  spawnGuest as makeGuest,
-  stepGuest,
   updateHabitatsFromBuildings,
   wanderAnimal,
   realignHabitatsToFences,
@@ -529,24 +533,48 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       }
     }
 
-    // --- guests: move, age out, keep happy ---------------------------------
+    // --- guests: stroll, view animals, leave when patience runs out --------
     const waypoints = pathWaypoints(s);
     const fenceCells = collectFenceCells(buildings);
     const blockedHabitats = Object.values(habitats).map((h) =>
       expandBounds(h.bounds, GUEST_FENCE_CLEARANCE),
     );
+    const viewpoints = buildViewpoints(habitats, buildings, fenceCells);
     const appeal = computeAppeal(s);
     const messPenalty = messHappinessPenalty(buildings, litter);
     const targetHappy = clamp(45 + appeal - messPenalty, 0, 100);
     const leaveMult = guestLeaveFactor(timeOfDay);
+
+    // Snapshot for follower→leader lookups during the step.
+    const guestSnapshot = s.guests;
     const guests: Record<string, Guest> = {};
-    for (const g of Object.values(s.guests)) {
-      const moved = stepGuest(g, waypoints, sdt, blockedHabitats, fenceCells);
-      // stepGuest already drains patience by sdt; scale extra leave at dusk/night.
-      const patience = moved.patience - sdt * (leaveMult - 1);
-      if (patience <= 0) continue; // guest goes home
-      const happiness = moved.happiness + (targetHappy - moved.happiness) * 0.4 * sdt;
-      guests[g.id] = { ...moved, patience, happiness: clamp(happiness, 0, 100) };
+
+    // Step leaders first so followers can track updated positions.
+    const ordered = Object.values(s.guests).sort((a, b) => Number(b.leader) - Number(a.leader));
+    for (const raw of ordered) {
+      const g = migrateGuest(raw, raw.id);
+      const livePeers = { ...guestSnapshot, ...guests };
+      const moved = stepGuestBehavior(g, {
+        waypoints,
+        viewpoints,
+        habitats,
+        blocked: blockedHabitats,
+        fenceCells,
+        guests: livePeers,
+        dt: sdt,
+      });
+      // Extra dusk/night leave pressure (viewing already drains slower).
+      const patience =
+        moved.activity === "view"
+          ? moved.patience - sdt * (leaveMult - 1) * 0.25
+          : moved.patience - sdt * (leaveMult - 1);
+      if (patience <= 0) continue;
+      // Ambient happiness drifts toward park target; viewing adds on top in stepGuestBehavior.
+      const happiness =
+        moved.activity === "view"
+          ? moved.happiness
+          : moved.happiness + (targetHappy - moved.happiness) * 0.25 * sdt;
+      guests[moved.id] = { ...moved, patience, happiness: clamp(happiness, 0, 100) };
 
       // Visitors drop trash — bins catch it when nearby, else ground litter.
       if (Math.random() < LITTER_DROP_RATE * sdt) {
@@ -556,7 +584,7 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       }
     }
 
-    // --- guest arrivals (none at night; limited by parking) ----------------
+    // --- guest arrivals: parties / families (none at night) ----------------
     const desired = Math.min(
       MAX_GUESTS,
       Math.round(expectedDailyGuests(appeal, s.finances.ticketPrice) * parkingArrivalFactor(buildings)),
@@ -564,14 +592,19 @@ export const useGameStore = create<ZooStore>((set, get) => ({
     let guestCount = Object.keys(guests).length;
     let ticketEarned = 0;
     const arriveMult = guestArrivalFactor(timeOfDay);
-    if (arriveMult > 0 && guestCount < desired && waypoints.length > 0) {
-      // Arrival rate scales with how far below the target we are + park hours.
-      const rate = (desired - guestCount) * 0.6 * sdt * arriveMult;
+    if (arriveMult > 0 && guestCount < desired - 1 && waypoints.length > 0) {
+      // Lower rate than old solo spawn — each success brings a whole party.
+      const rate = (desired - guestCount) * 0.22 * sdt * arriveMult;
       if (Math.random() < rate) {
-        const g = makeGuest(uid("g"), guestCount, entrancePosition(s));
-        guests[g.id] = g;
-        guestCount++;
-        ticketEarned += s.finances.ticketPrice;
+        const party = spawnGuestParty(entrancePosition(s), () => uid("g"), guestCount);
+        for (const member of party) {
+          if (guestCount >= MAX_GUESTS) break;
+          guests[member.id] = member;
+          guestCount++;
+          // Children still need a ticket, but a bit cheaper.
+          ticketEarned +=
+            member.kind === "child" ? s.finances.ticketPrice * 0.5 : s.finances.ticketPrice;
+        }
       }
     }
 
@@ -1125,6 +1158,9 @@ export function loadGame(): boolean {
       ownedParcels,
       plotSize: extent.plotSize,
       litter: parsed.state.litter ?? {},
+      guests: Object.fromEntries(
+        Object.entries(parsed.state.guests ?? {}).map(([id, g]) => [id, migrateGuest(g, id)]),
+      ),
       paused: false,
       selection: null,
       hoverCell: null,
