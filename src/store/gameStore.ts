@@ -85,7 +85,9 @@ import {
   updateHabitatsFromBuildings,
   wanderAnimal,
   realignHabitatsToFences,
-  pointInAnyBounds,
+  expandBounds,
+  guestWalkable,
+  GUEST_FENCE_CLEARANCE,
 } from "../game/simulation";
 
 /* -------------------------------------------------------------------------- */
@@ -327,13 +329,16 @@ function computeAppeal(s: SimSlice): number {
 
 /** World-space centres of every guest path / amenity tile (guest waypoints). */
 function pathWaypoints(s: SimSlice): Vec2[] {
-  const blocked = Object.values(s.habitats).map((h) => h.bounds);
+  const fenceCells = collectFenceCells(s.buildings);
+  const blocked = Object.values(s.habitats).map((h) =>
+    expandBounds(h.bounds, GUEST_FENCE_CLEARANCE),
+  );
   const pts: Vec2[] = [];
   for (const b of Object.values(s.buildings)) {
     if (b.defId !== "path" && b.category !== "guest") continue;
     const p = { x: b.position.x, z: b.position.z };
-    // Keep guests on public paths — never route through enclosures.
-    if (pointInAnyBounds(p, blocked, 0.25)) continue;
+    // Keep guests on public paths — never route through enclosures or onto fences.
+    if (!guestWalkable(p, blocked, fenceCells)) continue;
     pts.push(p);
   }
   return pts;
@@ -486,13 +491,16 @@ export const useGameStore = create<ZooStore>((set, get) => ({
 
     // --- guests: move, age out, keep happy ---------------------------------
     const waypoints = pathWaypoints(s);
-    const blockedHabitats = Object.values(habitats).map((h) => h.bounds);
+    const fenceCells = collectFenceCells(buildings);
+    const blockedHabitats = Object.values(habitats).map((h) =>
+      expandBounds(h.bounds, GUEST_FENCE_CLEARANCE),
+    );
     const appeal = computeAppeal(s);
     const targetHappy = clamp(45 + appeal, 0, 100);
     const leaveMult = guestLeaveFactor(timeOfDay);
     const guests: Record<string, Guest> = {};
     for (const g of Object.values(s.guests)) {
-      const moved = stepGuest(g, waypoints, sdt, blockedHabitats);
+      const moved = stepGuest(g, waypoints, sdt, blockedHabitats, fenceCells);
       // stepGuest already drains patience by sdt; scale extra leave at dusk/night.
       const patience = moved.patience - sdt * (leaveMult - 1);
       if (patience <= 0) continue; // guest goes home
