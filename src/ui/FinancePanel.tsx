@@ -12,6 +12,11 @@ import {
   ledgerNet,
   TICKET_PRICE_RANGE,
 } from "../game/economy";
+import {
+  landExpansionCost,
+  MAX_PLOT_SIZE,
+  PLOT_STEP,
+} from "../game/simulation";
 import { useGameStore } from "../store/gameStore";
 import { useUIStore } from "../store/uiStore";
 
@@ -48,7 +53,9 @@ export default function FinancePanel() {
   const close = useUIStore((s) => s.toggleFinance);
 
   const finances = useGameStore((s) => s.finances);
+  const plotSize = useGameStore((s) => s.plotSize);
   const setTicketPrice = useGameStore((s) => s.setTicketPrice);
+  const buyLand = useGameStore((s) => s.buyLand);
 
   if (!open) return null;
 
@@ -57,6 +64,9 @@ export default function FinancePanel() {
   const expense = ledgerExpense(today);
   const net = income - expense;
   const [minPrice, maxPrice] = TICKET_PRICE_RANGE;
+  const landCost = landExpansionCost(plotSize);
+  const canExpand = plotSize < MAX_PLOT_SIZE && finances.cash >= landCost;
+  const maxed = plotSize >= MAX_PLOT_SIZE;
 
   return (
     <div className="modal" role="dialog" aria-modal="true" aria-label="Finances">
@@ -108,6 +118,29 @@ export default function FinancePanel() {
           <p className="finance__hint">
             Higher prices earn more per guest but thin the crowds.
           </p>
+        </div>
+
+        <div className="finance__land">
+          <div className="finance__price-head">
+            <span>Park land</span>
+            <strong>
+              {plotSize}×{plotSize} m
+            </strong>
+          </div>
+          <p className="finance__hint">
+            {maxed
+              ? "You've bought every available parcel — the park is fully expanded."
+              : `Buy +${PLOT_STEP} m on each side (wilderness becomes buildable grass).`}
+          </p>
+          <button
+            type="button"
+            className="btn btn--amber"
+            disabled={!canExpand}
+            onClick={() => buyLand()}
+            title={maxed ? "Fully expanded" : `Expand for ${money(landCost)}`}
+          >
+            {maxed ? "Land fully owned" : `Buy land · ${money(landCost)}`}
+          </button>
         </div>
 
         <div className="ledger">

@@ -299,6 +299,12 @@ export interface GameState {
 
   finances: Finances;
 
+  /**
+   * Edge length of the owned plot in cells (centred in the world).
+   * Starts at 80; each land purchase grows it toward MAX_PLOT_SIZE.
+   */
+  plotSize: number;
+
   habitats: Record<string, Habitat>;
   animals: Record<string, Animal>;
   guests: Record<string, Guest>;

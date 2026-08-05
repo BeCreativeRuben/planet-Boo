@@ -46,13 +46,17 @@ import {
 } from "../game/economy";
 import {
   BIOME_CLIMATE,
-  MAP_SIZE,
   HALF,
+  START_PLOT_SIZE,
+  PLOT_STEP,
+  MAX_PLOT_SIZE,
   canPlaceBuilding,
   collectFenceCells,
   floodFillEnclosure,
   footprintCenter,
   forgetEntity,
+  landExpansionCost,
+  plotOffset,
   spawnGuest as makeGuest,
   stepGuest,
   updateHabitatsFromBuildings,
@@ -125,6 +129,8 @@ export interface ZooStore extends GameState {
   createHabitat: (seed: Vec2, opts?: CreateHabitatOpts) => string | null;
   addAnimalToHabitat: (speciesId: string, habitatId: string) => void;
   hireStaff: (role: StaffRole) => void;
+  /** Expand the owned plot by PLOT_STEP if affordable. Returns false if blocked. */
+  buyLand: () => boolean;
 
   /* --- selection --- */
   selectEntity: (selection: Selection | null) => void;
@@ -173,12 +179,14 @@ function createInitialState(): GameState & ViewState {
     buildings[b.instanceId] = b;
   };
 
-  // Entrance arch centred on the south edge (high Z).
-  add(makeBuilding("entrance-arch", { x: HALF - 3, z: MAP_SIZE - 4 }));
+  const plotSize = START_PLOT_SIZE;
+  const o = plotOffset(plotSize);
+  // Entrance on the south edge of the owned plot.
+  add(makeBuilding("entrance-arch", { x: o + plotSize / 2 - 3, z: o + plotSize - 4 }));
 
-  // A 2-wide starting path running north from the entrance toward the centre.
-  for (let z = MAP_SIZE - 6; z >= HALF; z -= 2) {
-    add(makeBuilding("path", { x: HALF - 1, z }));
+  // Path running north from the entrance toward the centre.
+  for (let z = o + plotSize - 6; z >= o + plotSize / 2; z -= 2) {
+    add(makeBuilding("path", { x: o + plotSize / 2 - 1, z }));
   }
 
   return {
@@ -189,6 +197,7 @@ function createInitialState(): GameState & ViewState {
     speed: 1,
 
     finances: createFinances(75_000),
+    plotSize,
 
     habitats: {},
     animals: {},
@@ -466,7 +475,13 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       if (!defId) {
         return { hoverCell, build: { ...s.build, valid: true } };
       }
-      const valid = canPlaceBuilding(s.buildings, defId, hoverCell, s.build.rotation);
+      const valid = canPlaceBuilding(
+        s.buildings,
+        defId,
+        hoverCell,
+        s.build.rotation,
+        s.plotSize,
+      );
       return { hoverCell, build: { ...s.build, valid } };
     }),
 
@@ -476,7 +491,7 @@ export const useGameStore = create<ZooStore>((set, get) => ({
     const s = get();
     const def = getBuilding(defId);
     if (!def) return;
-    if (!canPlaceBuilding(s.buildings, defId, cell, rotation)) return;
+    if (!canPlaceBuilding(s.buildings, defId, cell, rotation, s.plotSize)) return;
     if (s.finances.cash < def.cost) return;
 
     const building = makeBuilding(defId, cell, rotation);
@@ -587,6 +602,18 @@ export const useGameStore = create<ZooStore>((set, get) => ({
     set({ staff: { ...s.staff, [id]: member }, finances: applyPurchase(s.finances, def.hireCost) });
   },
 
+  buyLand: () => {
+    const s = get();
+    if (s.plotSize >= MAX_PLOT_SIZE) return false;
+    const cost = landExpansionCost(s.plotSize);
+    if (s.finances.cash < cost) return false;
+    set({
+      plotSize: Math.min(MAX_PLOT_SIZE, s.plotSize + PLOT_STEP),
+      finances: applyPurchase(s.finances, cost),
+    });
+    return true;
+  },
+
   /* ---- selection & finance ---- */
 
   selectEntity: (selection) => set({ selection }),
@@ -612,6 +639,7 @@ interface SavedPark {
     | "ambientTemp"
     | "speed"
     | "finances"
+    | "plotSize"
     | "habitats"
     | "animals"
     | "guests"
@@ -645,6 +673,7 @@ export function saveGame(): boolean {
         ambientTemp: s.ambientTemp,
         speed: s.speed,
         finances: s.finances,
+        plotSize: s.plotSize,
         habitats: s.habitats,
         animals: s.animals,
         guests: s.guests,
@@ -670,6 +699,7 @@ export function loadGame(): boolean {
     if (!parsed?.state?.habitats) return false;
     useGameStore.setState({
       ...parsed.state,
+      plotSize: parsed.state.plotSize ?? START_PLOT_SIZE,
       paused: false,
       selection: null,
       hoverCell: null,

@@ -85,8 +85,8 @@ const CONTENT: Record<SectionId, ReactNode> = {
         </li>
       </ol>
       <p className="guide__tip">
-        Rule of thumb: never spend more than ~30% of your cash on a single animal or
-        building spree.
+        Need more room? Open Finances (click Balance) and buy land — each purchase
+        expands the amber plot boundary into the wilderness.
       </p>
     </>
   ),

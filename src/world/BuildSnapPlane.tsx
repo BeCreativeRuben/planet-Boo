@@ -15,13 +15,12 @@ import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 
 import { useGameStore } from "../store/gameStore";
-import { MAP_SIZE, worldToCell, inBounds, cellCenter } from "../game/simulation";
-import type { Vec2 } from "../game/types";
+import { worldToCell, inPlot, cellCenter } from "../game/simulation";import type { Vec2 } from "../game/types";
 
-function cellFromPoint(point: THREE.Vector3): Vec2 | null {
+function cellFromPoint(point: THREE.Vector3, plotSize: number): Vec2 | null {
   const cx = worldToCell(point.x);
   const cz = worldToCell(point.z);
-  if (!inBounds(cx) || !inBounds(cz)) return null;
+  if (!inPlot(cx, plotSize) || !inPlot(cz, plotSize)) return null;
   return { x: cx, z: cz };
 }
 
@@ -76,6 +75,7 @@ function isFenceLike(defId: string | undefined): boolean {
 export function BuildSnapPlane() {
   const active = useGameStore((s) => s.build.active);
   const tool = useGameStore((s) => s.build.tool);
+  const plotSize = useGameStore((s) => s.plotSize);
   const controls = useThree((s) => s.controls) as { enabled?: boolean } | null;
 
   const painting = useRef(false);
@@ -96,11 +96,7 @@ export function BuildSnapPlane() {
     if (!defId) return;
     const key = `${cell.x},${cell.z}`;
     if (painted.current.has(key)) return;
-    const store = useGameStore.getState();
-    if (!store.build.valid && store.build.selectedDefId) {
-      // validity is refreshed below; still try placeBuilding which re-checks
-    }
-    store.placeBuilding(defId, cell, rotation);
+    useGameStore.getState().placeBuilding(defId, cell, rotation);
     painted.current.add(key);
   };
 
@@ -114,7 +110,7 @@ export function BuildSnapPlane() {
 
   const onPointerMove = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
-    const cell = cellFromPoint(e.point);
+    const cell = cellFromPoint(e.point, plotSize);
     if (!cell) {
       updateHover(null);
       return;
@@ -129,9 +125,7 @@ export function BuildSnapPlane() {
       if (fence) strokeRot.current = rot;
 
       const path = lineCells(lastCell.current, cell);
-      for (const c of path) {
-        placeAt(c, rot);
-      }
+      for (const c of path) placeAt(c, rot);
       lastCell.current = cell;
       updateHover(cell, rot);
       return;
@@ -141,12 +135,10 @@ export function BuildSnapPlane() {
   };
 
   const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
-    // Left button only — let middle/right keep orbit/pan.
     if (e.button !== 0) return;
     e.stopPropagation();
-    const cell = cellFromPoint(e.point);
+    const cell = cellFromPoint(e.point, plotSize);
     if (!cell) return;
-
     const defId = resolvePlaceId();
     if (!defId) return;
 
@@ -155,8 +147,6 @@ export function BuildSnapPlane() {
     lastCell.current = cell;
     strokeRot.current = useGameStore.getState().build.rotation;
     setControlsEnabled(false);
-
-    // Capture so we keep receiving moves even if the cursor leaves the plane.
     (e.target as unknown as { setPointerCapture?: (id: number) => void }).setPointerCapture?.(
       e.pointerId,
     );
@@ -175,8 +165,6 @@ export function BuildSnapPlane() {
   };
 
   const onClick = (e: ThreeEvent<MouseEvent>) => {
-    // Swallow clicks so terrain / buildings underneath don't clear selection
-    // or re-trigger placement after a drag.
     e.stopPropagation();
   };
 
@@ -194,7 +182,7 @@ export function BuildSnapPlane() {
         }}
         onClick={onClick}
       >
-        <planeGeometry args={[MAP_SIZE, MAP_SIZE]} />
+        <planeGeometry args={[plotSize, plotSize]} />
         <meshBasicMaterial
           transparent
           opacity={0}

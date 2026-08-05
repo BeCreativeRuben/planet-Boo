@@ -9,10 +9,9 @@
  *
  * Coordinate model
  * ----------------
- * The park is an 80×80 grid of 1-metre cells. Runtime positions (buildings,
- * animals, guests) are stored in *world* units, centred on the origin so the
- * camera can simply target (0,0,0). Grid cell index `c` (0..MAP_SIZE-1) maps to
- * the world centre `c - HALF + 0.5`.
+ * The world is a fixed MAX_MAP_SIZE grid centred on the origin. Players own a
+ * smaller centred *plot* that can expand via land purchases without shifting
+ * existing buildings. Grid cell `c` maps to world centre `c - HALF + 0.5`.
  */
 
 import type {
@@ -31,14 +30,46 @@ import { getBuilding } from "./buildings";
 /*  Grid / coordinate constants + helpers                                     */
 /* -------------------------------------------------------------------------- */
 
-/** Park size in grid cells (and metres). */
-export const MAP_SIZE = 80;
-/** Half the map — the world origin sits at the park centre. */
-export const HALF = MAP_SIZE / 2;
+/** Absolute world size in cells (never shrinks; expansions grow the owned plot). */
+export const MAX_MAP_SIZE = 160;
+/** @deprecated Prefer MAX_MAP_SIZE — kept for older imports. */
+export const MAP_SIZE = MAX_MAP_SIZE;
+/** Half the max map — the world origin sits at the park centre. */
+export const HALF = MAX_MAP_SIZE / 2;
 
-/** Is a grid cell index inside the park? */
+/** Starting owned plot edge length (centred in the max map). */
+export const START_PLOT_SIZE = 80;
+/** Metres/cells added to the plot edge per land purchase. */
+export const PLOT_STEP = 20;
+/** Hard cap for owned plot size. */
+export const MAX_PLOT_SIZE = MAX_MAP_SIZE;
+
+/** Cell offset where the owned plot begins for a given plot size. */
+export function plotOffset(plotSize: number): number {
+  return Math.floor((MAX_MAP_SIZE - plotSize) / 2);
+}
+
+/** Is a grid cell inside the absolute world? */
+export function inWorld(c: number): boolean {
+  return c >= 0 && c < MAX_MAP_SIZE;
+}
+
+/** Is a grid cell inside the player's owned plot? */
+export function inPlot(c: number, plotSize: number): boolean {
+  const o = plotOffset(plotSize);
+  return c >= o && c < o + plotSize;
+}
+
+/** @deprecated Use inWorld / inPlot. */
 export function inBounds(c: number): boolean {
-  return c >= 0 && c < MAP_SIZE;
+  return inWorld(c);
+}
+
+/** Cost to expand from current plotSize by one PLOT_STEP. */
+export function landExpansionCost(plotSize: number): number {
+  if (plotSize >= MAX_PLOT_SIZE) return Number.POSITIVE_INFINITY;
+  const tier = Math.max(0, Math.round((plotSize - START_PLOT_SIZE) / PLOT_STEP));
+  return 15_000 + tier * 12_000;
 }
 
 /** World coordinate → grid cell index. */
@@ -145,7 +176,7 @@ export function floodFillEnclosure(seed: Vec2, fenceCells: Set<string>): Enclosu
   if (fenceCells.has(seedKey)) return { cells, bounded: false, bounds: emptyBounds() };
   cells.add(seedKey);
 
-  const LIMIT = MAP_SIZE * MAP_SIZE;
+  const LIMIT = MAX_MAP_SIZE * MAX_MAP_SIZE;
   while (queue.length && cells.size < LIMIT) {
     const { x, z } = queue.pop()!;
     const neighbours = [
@@ -155,7 +186,7 @@ export function floodFillEnclosure(seed: Vec2, fenceCells: Set<string>): Enclosu
       { x, z: z - 1 },
     ];
     for (const n of neighbours) {
-      if (!inBounds(n.x) || !inBounds(n.z)) {
+      if (!inWorld(n.x) || !inWorld(n.z)) {
         bounded = false;
         continue;
       }
@@ -190,6 +221,7 @@ export function canPlaceBuilding(
   defId: string,
   cell: Vec2,
   rotation = 0,
+  plotSize: number = START_PLOT_SIZE,
 ): boolean {
   const def = getBuilding(defId);
   if (!def) return false;
@@ -199,7 +231,7 @@ export function canPlaceBuilding(
     for (let j = 0; j < d; j++) {
       const cx = cell.x + i;
       const cz = cell.z + j;
-      if (!inBounds(cx) || !inBounds(cz)) return false;
+      if (!inPlot(cx, plotSize) || !inPlot(cz, plotSize)) return false;
       if (occupied.has(key(cx, cz))) return false;
     }
   }
