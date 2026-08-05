@@ -224,7 +224,8 @@ function PlacedBuilding({ id }: { id: string }) {
       (s.build.tool === "place" ||
         s.build.tool === "fence" ||
         s.build.tool === "gate" ||
-        s.build.tool === "claim"),
+        s.build.tool === "claim" ||
+        s.build.tool === "animal"),
   );
   if (!building) return null;
   const def = getBuilding(building.defId);
