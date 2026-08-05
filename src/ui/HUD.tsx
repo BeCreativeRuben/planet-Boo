@@ -91,14 +91,44 @@ function stars(rating: number): string {
 
 function PhaseBanner() {
   const timeOfDay = useGameStore((s) => s.timeOfDay);
+  const speed = useGameStore((s) => s.speed);
+  const paused = useGameStore((s) => s.paused);
+  const setSpeed = useGameStore((s) => s.setSpeed);
+  const setPaused = useGameStore((s) => s.setPaused);
   const phase = getDayPhase(timeOfDay);
   if (!isNightPhase(phase)) return null;
+
   return (
-    <div className="phase-banner glass" role="status">
-      <span className="phase-banner__title">Night maintenance</span>
-      <span className="phase-banner__hint">
-        Guests have gone home — build freely, or speed up (2× / 3×) to skip to dawn.
-      </span>
+    <div className="phase-banner" role="status">
+      <div className="phase-banner__mark" aria-hidden>
+        <span className="phase-banner__moon" />
+      </div>
+      <div className="phase-banner__copy">
+        <strong className="phase-banner__title">Night maintenance</strong>
+        <p className="phase-banner__hint">
+          Gates closed — staff work faster. Build freely, or skip ahead to dawn.
+        </p>
+      </div>
+      <div className="phase-banner__actions">
+        {[2, 3].map((sp) => (
+          <button
+            key={sp}
+            type="button"
+            className={
+              speed === sp && !paused
+                ? "phase-banner__speed phase-banner__speed--on"
+                : "phase-banner__speed"
+            }
+            onClick={() => {
+              setPaused(false);
+              setSpeed(sp);
+            }}
+            title={`Run at ${sp}× to skip the night`}
+          >
+            {sp}×
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
