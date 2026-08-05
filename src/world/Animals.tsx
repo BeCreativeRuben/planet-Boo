@@ -61,9 +61,16 @@ function AnimalMesh({ id }: { id: string }) {
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     const store = useGameStore.getState();
+    if (store.build.active) return;
     store.selectEntity({ kind: "animal", id });
     store.focusAnimal(id);
   };
+
+  const placing = useGameStore(
+    (s) =>
+      s.build.active &&
+      (s.build.tool === "place" || s.build.tool === "fence" || s.build.tool === "gate"),
+  );
 
   const bodyLen = 1.2 * scale;
   const bodyR = 0.5 * scale;
@@ -71,7 +78,7 @@ function AnimalMesh({ id }: { id: string }) {
   const legOff = 0.32 * scale;
 
   return (
-    <group ref={groupRef} onClick={onClick}>
+    <group ref={groupRef} onClick={onClick} raycast={placing ? () => {} : undefined}>
       <mesh position={[0, legH + bodyR * 0.6, 0]} scale={[bodyLen, bodyR, bodyR]} castShadow>
         <sphereGeometry args={[1, 12, 10]} />
         <meshStandardMaterial color={color} roughness={0.8} />

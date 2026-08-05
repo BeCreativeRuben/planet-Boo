@@ -218,6 +218,11 @@ function BuildingMesh({ def, w, d }: MeshProps) {
 
 function PlacedBuilding({ id }: { id: string }) {
   const building = useGameStore((s) => s.buildings[id]) as Building | undefined;
+  const placing = useGameStore(
+    (s) =>
+      s.build.active &&
+      (s.build.tool === "place" || s.build.tool === "fence" || s.build.tool === "gate"),
+  );
   if (!building) return null;
   const def = getBuilding(building.defId);
   if (!def) return null;
@@ -231,7 +236,7 @@ function PlacedBuilding({ id }: { id: string }) {
     const store = useGameStore.getState();
     if (store.build.active && store.build.tool === "delete") {
       store.demolish(id);
-    } else {
+    } else if (!store.build.active) {
       store.selectEntity({ kind: "building", id });
     }
   };
@@ -240,7 +245,9 @@ function PlacedBuilding({ id }: { id: string }) {
     <group
       position={[building.position.x, 0, building.position.z]}
       rotation={[0, (building.rotation * Math.PI) / 2, 0]}
-      onClick={onClick}
+      onClick={placing ? undefined : onClick}
+      // While placing, let the snap plane receive all hits.
+      raycast={placing ? () => {} : undefined}
     >
       <BuildingMesh def={def} w={w} d={d} />
     </group>

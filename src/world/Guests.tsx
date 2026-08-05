@@ -18,6 +18,11 @@ function GuestMesh({ id }: { id: string }) {
   const ref = useRef<Group>(null);
   const shirt = guestColor(id);
   const phase = hash01(id) * Math.PI * 2;
+  const placing = useGameStore(
+    (s) =>
+      s.build.active &&
+      (s.build.tool === "place" || s.build.tool === "fence" || s.build.tool === "gate"),
+  );
 
   useFrame((state) => {
     const g = ref.current;
@@ -31,7 +36,7 @@ function GuestMesh({ id }: { id: string }) {
   });
 
   return (
-    <group ref={ref}>
+    <group ref={ref} raycast={placing ? () => {} : undefined}>
       {/* legs */}
       <mesh position={[0, 0.28, 0]} castShadow>
         <cylinderGeometry args={[0.14, 0.14, 0.56, 6]} />

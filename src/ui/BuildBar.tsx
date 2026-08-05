@@ -54,12 +54,26 @@ export default function BuildBar({ tab }: { tab: BuildTab }) {
   const hireStaff = useGameStore((s) => s.hireStaff);
 
   const selectBuilding = (defId: string) => {
-    const armed = build.tool === "place" && build.selectedDefId === defId;
-    setBuildMode(
-      armed
-        ? { active: false, tool: "none", selectedDefId: undefined, selectedSpeciesId: undefined }
-        : { active: true, tool: "place", selectedDefId: defId, selectedSpeciesId: undefined },
-    );
+    const armed = build.tool === "place" || build.tool === "fence" || build.tool === "gate"
+      ? build.selectedDefId === defId
+      : false;
+    if (armed && (build.tool === "place" || build.tool === "fence" || build.tool === "gate")) {
+      setBuildMode({
+        active: false,
+        tool: "none",
+        selectedDefId: undefined,
+        selectedSpeciesId: undefined,
+      });
+      return;
+    }
+    const tool =
+      defId === "fence-segment" ? "fence" : defId === "habitat-gate" ? "gate" : "place";
+    setBuildMode({
+      active: true,
+      tool,
+      selectedDefId: defId,
+      selectedSpeciesId: undefined,
+    });
   };
 
   const selectSpecies = (speciesId: string) => {
@@ -119,7 +133,9 @@ export default function BuildBar({ tab }: { tab: BuildTab }) {
               );
             })
           : buildings.map((d) => {
-              const armed = build.tool === "place" && build.selectedDefId === d.id;
+              const armed =
+                (build.tool === "place" || build.tool === "fence" || build.tool === "gate") &&
+                build.selectedDefId === d.id;
               const poor = cash < d.cost;
               return (
                 <button

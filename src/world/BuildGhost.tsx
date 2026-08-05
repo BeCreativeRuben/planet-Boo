@@ -36,14 +36,14 @@ export function BuildGhost() {
   const color = valid ? "#8fd694" : "#e0655a";
 
   return (
-    <group position={[center.x, 0, center.z]}>
+    <group position={[center.x, 0, center.z]} rotation={[0, (rotation * Math.PI) / 2, 0]}>
       <mesh position={[0, 0.75, 0]}>
-        <boxGeometry args={[w * 0.96, 1.5, d * 0.96]} />
+        <boxGeometry args={[w * 0.96, 1.5, Math.max(0.2, d * 0.96)]} />
         <meshBasicMaterial color={color} transparent opacity={0.35} />
       </mesh>
-      <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[w, d]} />
-        <meshBasicMaterial color={color} transparent opacity={0.5} />
+      <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[Math.max(w, 0.96), Math.max(d, 0.96)]} />
+        <meshBasicMaterial color={color} transparent opacity={0.55} depthWrite={false} />
       </mesh>
     </group>
   );

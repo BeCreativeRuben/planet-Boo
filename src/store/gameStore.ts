@@ -453,15 +453,20 @@ export const useGameStore = create<ZooStore>((set, get) => ({
   setBuildBiome: (buildBiome) => set({ buildBiome }),
   setHoverCell: (hoverCell) =>
     set((s) => {
-      if (!hoverCell || !s.build.selectedDefId) {
+      if (!hoverCell) {
+        return { hoverCell: null, build: { ...s.build, valid: true } };
+      }
+      const defId =
+        s.build.selectedDefId ??
+        (s.build.tool === "fence"
+          ? "fence-segment"
+          : s.build.tool === "gate"
+            ? "habitat-gate"
+            : undefined);
+      if (!defId) {
         return { hoverCell, build: { ...s.build, valid: true } };
       }
-      const valid = canPlaceBuilding(
-        s.buildings,
-        s.build.selectedDefId,
-        hoverCell,
-        s.build.rotation,
-      );
+      const valid = canPlaceBuilding(s.buildings, defId, hoverCell, s.build.rotation);
       return { hoverCell, build: { ...s.build, valid } };
     }),
 

@@ -20,6 +20,7 @@ import { Buildings } from "./Buildings";
 import { Animals } from "./Animals";
 import { Guests } from "./Guests";
 import { BuildGhost } from "./BuildGhost";
+import { BuildSnapPlane } from "./BuildSnapPlane";
 import { HabitatHighlights } from "./HabitatHighlights";
 import { CameraRig } from "./CameraRig";
 
@@ -114,6 +115,7 @@ export function ZooScene() {
       <Buildings />
       <Animals />
       <Guests />
+      <BuildSnapPlane />
       <BuildGhost />
 
       <SimulationDriver />
