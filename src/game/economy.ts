@@ -24,6 +24,7 @@ import type {
 import { SPECIES_BY_ID } from "./species";
 import { getBuilding } from "./buildings";
 import { getStaffRole } from "./staffTypes";
+import { getDayPhase } from "./dayCycle";
 
 /** Default ticket price when a new park is founded. */
 export const DEFAULT_TICKET_PRICE = 18;
@@ -179,13 +180,13 @@ export function transactionRevenue(def: BuildingDef, guestHappiness: number): nu
 /**
  * How open a shop is right now (0 = closed, 1 = fully open).
  * Closed at night and when the building is falling apart.
+ * Hours follow {@link getDayPhase} so shops match guest arrivals.
  */
 export function shopOpenFactor(timeOfDay: number, condition: number): number {
   if (condition < 15) return 0;
-  // Night: closed.
-  if (timeOfDay < 0.28 || timeOfDay >= 0.82) return 0;
-  // Dawn / dusk: half staffed.
-  if (timeOfDay < 0.34 || timeOfDay >= 0.75) return 0.55;
+  const phase = getDayPhase(timeOfDay);
+  if (phase === "night") return 0;
+  if (phase === "dawn" || phase === "dusk") return 0.55;
   return 1;
 }
 

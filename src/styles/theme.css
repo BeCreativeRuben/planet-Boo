@@ -381,6 +381,35 @@ button {
   gap: 0.3rem;
   margin-left: auto;
 }
+
+.phase-banner {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.85rem;
+  margin: 0 0.9rem 0.35rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid rgba(120, 150, 200, 0.25);
+  background: linear-gradient(
+    105deg,
+    rgba(18, 28, 48, 0.72),
+    rgba(32, 42, 64, 0.55)
+  );
+}
+.phase-banner__title {
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #b8c8e8;
+  white-space: nowrap;
+}
+.phase-banner__hint {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
 .ctrl {
   width: 34px;
   height: 34px;
