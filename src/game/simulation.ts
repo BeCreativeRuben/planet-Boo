@@ -469,6 +469,55 @@ export function pointInAnyBounds(p: Vec2, boxes: Bounds[], pad = 0): boolean {
   return false;
 }
 
+/** Grow an AABB outward by `pad` metres on every side. */
+export function expandBounds(b: Bounds, pad: number): Bounds {
+  return {
+    min: { x: b.min.x - pad, z: b.min.z - pad },
+    max: { x: b.max.x + pad, z: b.max.z + pad },
+  };
+}
+
+/**
+ * How far past the habitat interior guests must stay. Interior bounds stop at
+ * the inner fence edge; ~1.05m covers the fence cell so visitors can't perch
+ * on the timber.
+ */
+export const GUEST_FENCE_CLEARANCE = 1.05;
+
+/** True when the world point sits on a fence or gate cell. */
+export function pointOnFence(p: Vec2, fenceCells: Set<string>): boolean {
+  return fenceCells.has(`${worldToCell(p.x)},${worldToCell(p.z)}`);
+}
+
+/** Can a guest stand / walk at this world point? */
+export function guestWalkable(
+  p: Vec2,
+  blocked: Bounds[],
+  fenceCells: Set<string>,
+): boolean {
+  if (fenceCells.size && pointOnFence(p, fenceCells)) return false;
+  if (blocked.length && pointInAnyBounds(p, blocked)) return false;
+  return true;
+}
+
+/** Nudge a guest off fences / out of enclosures onto nearby open ground. */
+export function pushGuestClear(
+  p: Vec2,
+  blocked: Bounds[],
+  fenceCells: Set<string>,
+): Vec2 {
+  if (guestWalkable(p, blocked, fenceCells)) return p;
+  for (const r of [0.55, 1.1, 1.8, 2.6, 3.5]) {
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const candidate = { x: p.x + Math.cos(a) * r, z: p.z + Math.sin(a) * r };
+      if (guestWalkable(candidate, blocked, fenceCells)) return candidate;
+    }
+  }
+  // Last resort: drift toward park centre.
+  return { x: p.x * 0.9, z: p.z * 0.9 };
+}
+
 /**
  * Snap each habitat's bounds to the closed fence ring around its centre.
  * Fixes older saves / demo parks whose AABB overran the timber walls.
@@ -513,20 +562,23 @@ export function realignHabitatsToFences(
  * updated position, target and patience. Happiness / spending are the store's
  * job; this only handles movement.
  *
- * `blocked` habitat AABBs are treated as off-limits — guests won't pick
- * waypoints inside them or walk through them.
+ * `blocked` habitat AABBs (usually expanded by {@link GUEST_FENCE_CLEARANCE})
+ * and `fenceCells` are off-limits — guests won't pick waypoints on them or
+ * walk through / perch on fence timber.
  */
 export function stepGuest(
   guest: Guest,
   waypoints: Vec2[],
   dt: number,
   blocked: Bounds[] = [],
+  fenceCells: Set<string> = EMPTY_FENCE_CELLS,
 ): Guest {
-  const outside = (p: Vec2) => !pointInAnyBounds(p, blocked);
-  const openWaypoints = blocked.length ? waypoints.filter(outside) : waypoints;
+  const walkable = (p: Vec2) => guestWalkable(p, blocked, fenceCells);
+  const openWaypoints =
+    blocked.length || fenceCells.size ? waypoints.filter(walkable) : waypoints;
 
   let target = guest.target;
-  if (target && !outside(target)) target = null;
+  if (target && !walkable(target)) target = null;
 
   const reached = target ? dist2(guest.position, target) < 1.2 : true;
   if ((!target || reached) && openWaypoints.length) {
@@ -539,31 +591,36 @@ export function stepGuest(
     const dz = target.z - guest.position.z;
     const len = Math.hypot(dx, dz) || 1;
     const speed = 1.4; // metres / second
+    const step = speed * dt;
     const nextPos = {
-      x: guest.position.x + (dx / len) * speed * dt,
-      z: guest.position.z + (dz / len) * speed * dt,
+      x: guest.position.x + (dx / len) * step,
+      z: guest.position.z + (dz / len) * step,
     };
-    if (outside(nextPos)) {
+    // Mid-step sample catches thin fence crossings between cells.
+    const mid = {
+      x: guest.position.x + (dx / len) * step * 0.5,
+      z: guest.position.z + (dz / len) * step * 0.5,
+    };
+    if (walkable(mid) && walkable(nextPos)) {
       position = nextPos;
     } else {
-      // Hit an enclosure — abandon this target and slide along the edge.
+      // Hit an enclosure / fence — abandon this target and slide along the edge.
       target = null;
-      const slide = { x: guest.position.x + (dx / len) * 0.2, z: guest.position.z };
-      if (outside(slide)) position = slide;
+      const slide = { x: guest.position.x + (dx / len) * 0.25, z: guest.position.z };
+      if (walkable(slide)) position = slide;
       else {
-        const slideZ = { x: guest.position.x, z: guest.position.z + (dz / len) * 0.2 };
-        if (outside(slideZ)) position = slideZ;
+        const slideZ = { x: guest.position.x, z: guest.position.z + (dz / len) * 0.25 };
+        if (walkable(slideZ)) position = slideZ;
       }
     }
   }
 
-  // If somehow already inside (e.g. old save), nudge toward park centre.
-  if (!outside(position)) {
-    position = {
-      x: position.x * 0.92,
-      z: position.z * 0.92 + (position.z >= 0 ? 0.4 : -0.4),
-    };
+  // If somehow already on a fence or inside (old save / bad spawn), clear them.
+  if (!walkable(position)) {
+    position = pushGuestClear(position, blocked, fenceCells);
   }
 
   return { ...guest, position, target, patience: guest.patience - dt };
 }
+
+const EMPTY_FENCE_CELLS: Set<string> = new Set();
