@@ -10,6 +10,7 @@ import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 
 import { useGameStore } from "../store/gameStore";
+import { useUIStore } from "../store/uiStore";
 
 import { Terrain } from "./Terrain";
 import { Buildings } from "./Buildings";
@@ -20,6 +21,8 @@ import { BuildGhost } from "./BuildGhost";
 import { BuildSnapPlane } from "./BuildSnapPlane";
 import { HabitatHighlights } from "./HabitatHighlights";
 import { CameraRig } from "./CameraRig";
+import { LandSurveyCamera } from "./LandSurveyCamera";
+import { LandParcelLayer } from "./LandParcelLayer";
 import { ParkBackdrop, PlotBoundary } from "./ParkBackdrop";
 import { ownedExtent } from "../game/parcels";
 
@@ -72,15 +75,23 @@ function Daylight() {
 
 function Atmosphere() {
   const timeOfDay = useGameStore((s) => s.timeOfDay);
+  const landSelectOpen = useUIStore((s) => s.landSelectOpen);
   const dayness = Math.max(0.15, Math.sin(Math.PI * Math.min(1, Math.max(0, timeOfDay))));
   const fog = new THREE.Color().setHSL(0.18, 0.25, 0.55 + dayness * 0.12);
+  // Pull fog back while surveying so the full 160 m map stays readable.
+  if (landSelectOpen) {
+    return <fog attach="fog" args={[fog.getStyle(), 220, 480]} />;
+  }
   return <fog attach="fog" args={[fog.getStyle(), 70, 240]} />;
 }
 
 export function ZooScene() {
   const ownedParcels = useGameStore((s) => s.ownedParcels);
+  const landSelectOpen = useUIStore((s) => s.landSelectOpen);
   const extent = ownedExtent(ownedParcels);
-  const maxDist = Math.min(160, 70 + extent.plotSize * 0.5);
+  const maxDist = landSelectOpen
+    ? 240
+    : Math.min(160, 70 + extent.plotSize * 0.5);
 
   return (
     <Canvas
@@ -98,23 +109,26 @@ export function ZooScene() {
         makeDefault
         enableDamping
         dampingFactor={0.08}
-        minDistance={8}
+        enableRotate={!landSelectOpen}
+        minDistance={landSelectOpen ? 60 : 8}
         maxDistance={maxDist}
-        maxPolarAngle={(75 * Math.PI) / 180}
-        minPolarAngle={0.12}
+        maxPolarAngle={landSelectOpen ? 0.02 : (75 * Math.PI) / 180}
+        minPolarAngle={landSelectOpen ? 0 : 0.12}
         target={[0, 0, 0]}
       />
-      <CameraRig />
+      <LandSurveyCamera />
+      {!landSelectOpen && <CameraRig />}
 
       <Terrain />
       <PlotBoundary />
-      <HabitatHighlights />
+      <LandParcelLayer />
+      {!landSelectOpen && <HabitatHighlights />}
       <Buildings />
       <Animals />
       <Guests />
       <LitterLayer />
-      <BuildSnapPlane />
-      <BuildGhost />
+      {!landSelectOpen && <BuildSnapPlane />}
+      {!landSelectOpen && <BuildGhost />}
 
       <SimulationDriver />
     </Canvas>

@@ -60,6 +60,7 @@ function Row({
 export default function FinancePanel() {
   const open = useUIStore((s) => s.financeOpen);
   const close = useUIStore((s) => s.toggleFinance);
+  const openLandSelect = useUIStore((s) => s.openLandSelect);
 
   const finances = useGameStore((s) => s.finances);
   const animals = useGameStore((s) => s.animals);
@@ -67,7 +68,6 @@ export default function FinancePanel() {
   const buildings = useGameStore((s) => s.buildings);
   const ownedParcels = useGameStore((s) => s.ownedParcels);
   const setTicketPrice = useGameStore((s) => s.setTicketPrice);
-  const buyParcel = useGameStore((s) => s.buyParcel);
 
   if (!open) return null;
 
@@ -147,9 +147,13 @@ export default function FinancePanel() {
           <p className="finance__hint">
             {maxed
               ? "You've bought every reachable parcel."
-              : "Click an amber plot to expand that way. South plots sit by the parking entrance."}
+              : "Expand on a top-down map of the whole park — compass sides and prices are labelled on each plot."}
           </p>
-          <div className="parcel-map" role="grid" aria-label="Buyable land parcels">
+          <div className="parcel-map parcel-map--preview" role="img" aria-label="Park land overview">
+            <span className="parcel-map__edge parcel-map__edge--n">N</span>
+            <span className="parcel-map__edge parcel-map__edge--s">S</span>
+            <span className="parcel-map__edge parcel-map__edge--w">W</span>
+            <span className="parcel-map__edge parcel-map__edge--e">E</span>
             {Array.from({ length: PARCELS_AXIS }, (_, row) => {
               const pz = PARCELS_AXIS - 1 - row;
               return (
@@ -163,19 +167,17 @@ export default function FinancePanel() {
                       : offer
                         ? "parcel-map__cell parcel-map__cell--buy"
                         : "parcel-map__cell";
-                    const title = owned
-                      ? `Owned plot (${px},${pz})`
-                      : offer
-                        ? `Buy ${offer.direction} · ${money(offer.cost)}`
-                        : "Locked — buy adjacent land first";
                     return (
-                      <button
+                      <div
                         key={key}
-                        type="button"
                         className={cls}
-                        disabled={!offer || finances.cash < (offer?.cost ?? 0)}
-                        title={title}
-                        onClick={() => offer && buyParcel(offer.key)}
+                        title={
+                          owned
+                            ? `Owned (${px},${pz})`
+                            : offer
+                              ? `${offer.direction} · ${money(offer.cost)}`
+                              : "Locked"
+                        }
                       />
                     );
                   })}
@@ -183,10 +185,25 @@ export default function FinancePanel() {
               );
             })}
           </div>
-          {!maxed && buyable[0] && (
-            <p className="finance__hint">
-              Cheapest adjacent: {buyable[0].direction} · {money(buyable[0].cost)}
-            </p>
+          {!maxed && (
+            <>
+              {buyable[0] && (
+                <p className="finance__hint">
+                  Cheapest adjacent: {buyable[0].direction} · {money(buyable[0].cost)} · South
+                  sits by the entrance
+                </p>
+              )}
+              <button
+                type="button"
+                className="btn"
+                onClick={() => {
+                  close();
+                  openLandSelect();
+                }}
+              >
+                Survey land on map
+              </button>
+            </>
           )}
         </div>
 

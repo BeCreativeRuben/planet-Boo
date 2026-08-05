@@ -1015,14 +1015,46 @@ button {
 }
 
 .parcel-map {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 3px;
   align-self: center;
-  padding: 0.45rem;
+  padding: 1.15rem 1.25rem;
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.18);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.parcel-map--preview {
+  pointer-events: none;
+}
+.parcel-map__edge {
+  position: absolute;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--amber-glow, #e7b84a);
+  opacity: 0.9;
+}
+.parcel-map__edge--n {
+  top: 0.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.parcel-map__edge--s {
+  bottom: 0.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.parcel-map__edge--w {
+  left: 0.35rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.parcel-map__edge--e {
+  right: 0.35rem;
+  top: 50%;
+  transform: translateY(-50%);
 }
 .parcel-map__row {
   display: flex;
@@ -1044,15 +1076,157 @@ button {
 .parcel-map__cell--buy {
   background: linear-gradient(160deg, #e7b84a, #c98420);
   border-color: rgba(255, 220, 140, 0.55);
-  cursor: pointer;
   box-shadow: 0 0 0 1px rgba(231, 154, 43, 0.25);
 }
-.parcel-map__cell--buy:hover:not(:disabled) {
-  filter: brightness(1.12);
+
+/* Land survey (forced top-down purchase mode) */
+.land-survey {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 4.6rem 1rem 1.1rem;
+  box-sizing: border-box;
 }
-.parcel-map__cell--buy:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+.land-survey__banner {
+  pointer-events: auto;
+  align-self: center;
+  max-width: min(920px, 100%);
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem 1.2rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+}
+.land-survey__title {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.land-survey__title h2 {
+  margin: 0 0 0.2rem;
+  font-size: 1.05rem;
+}
+.land-survey__title p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.35;
+}
+.land-survey__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.1rem;
+}
+.land-survey__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 5.5rem;
+}
+.land-survey__stat span {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.land-survey__stat strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--amber-glow, #e7b84a);
+}
+.land-survey__actions {
+  display: flex;
+  gap: 0.45rem;
+  margin-left: auto;
+}
+.land-survey__legend {
+  pointer-events: none;
+  align-self: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.7rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+.land-survey__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+.land-survey__swatch--owned {
+  background: #5a8f3a;
+}
+.land-survey__swatch--buy {
+  background: #e7b84a;
+}
+.land-survey__swatch--locked {
+  background: #2a3228;
+}
+.land-survey__compass-hint {
+  margin-left: 0.35rem;
+  color: var(--amber-glow, #e7b84a);
+  font-weight: 700;
+}
+
+.land-pad-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  background: rgba(18, 22, 16, 0.82);
+  border: 1px solid rgba(231, 184, 74, 0.55);
+  color: #fff3c0;
+  font-size: 11px;
+  line-height: 1.15;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.land-pad-label strong {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.land-pad-label--disabled {
+  opacity: 0.45;
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #c8c4b8;
+}
+
+.land-compass {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 10px;
+  background: rgba(12, 16, 12, 0.88);
+  border: 1px solid rgba(231, 184, 74, 0.45);
+  color: #e7b84a;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+.land-compass__dir {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+.land-compass__hint {
+  font-size: 0.62rem;
+  color: rgba(255, 243, 192, 0.75);
+  white-space: nowrap;
+}
+
+.hud--land-survey .topbar {
+  opacity: 0.92;
 }
 
 .finance__price-head {

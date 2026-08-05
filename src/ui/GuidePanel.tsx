@@ -91,9 +91,9 @@ const CONTENT: Record<SectionId, ReactNode> = {
         </li>
       </ol>
       <p className="guide__tip">
-        Need more room? Open Finances (click Balance) and buy individual land plots on
-        the map — expand any direction. South plots sit by parking and the entrance;
-        keep the lot maintained so guests can arrive.
+        Need more room? Open Finances (click Balance), then <strong>Survey land on
+        map</strong> for a top-down view of the whole park. Amber plots are for sale —
+        south sits by parking and the entrance.
       </p>
     </>
   ),

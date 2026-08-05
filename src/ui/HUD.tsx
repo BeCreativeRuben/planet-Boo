@@ -43,6 +43,7 @@ import BuildBar, { BIOMES } from "./BuildBar";
 import AnimalPanel, { FactorBar, toneFor } from "./AnimalPanel";
 import Notifications from "./Notifications";
 import FinancePanel from "./FinancePanel";
+import LandSurveyHud from "./LandSurveyHud";
 import GuidePanel from "./GuidePanel";
 import AnimalOverview from "./AnimalOverview";
 import JobsOverview from "./JobsOverview";
@@ -59,22 +60,28 @@ function moneySigned(n: number): string {
 }
 export default function HUD() {
   const activeTab = useUIStore((s) => s.activeTab);
+  const landSelectOpen = useUIStore((s) => s.landSelectOpen);
 
   return (
-    <div className="hud">
+    <div className={`hud${landSelectOpen ? " hud--land-survey" : ""}`}>
       <TopBar />
-      <PhaseBanner />
+      {!landSelectOpen && <PhaseBanner />}
 
-      <div className="hud__mid">
-        <Inspector />
-        <Notifications />
-      </div>
+      {!landSelectOpen && (
+        <div className="hud__mid">
+          <Inspector />
+          <Notifications />
+        </div>
+      )}
 
-      <div className="toolbar">
-        <Toolbar />
-        {activeTab && <BuildBar tab={activeTab} />}
-      </div>
+      {!landSelectOpen && (
+        <div className="toolbar">
+          <Toolbar />
+          {activeTab && <BuildBar tab={activeTab} />}
+        </div>
+      )}
 
+      <LandSurveyHud />
       <FinancePanel />
       <GuidePanel />
       <AnimalOverview />
