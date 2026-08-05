@@ -299,6 +299,7 @@ button {
   display: grid;
   grid-template-rows: auto 1fr auto;
   font-family: var(--hud-font);
+  overflow: hidden;
 }
 .hud > * {
   pointer-events: auto;
@@ -603,16 +604,20 @@ button {
 
 .toolbar {
   display: flex;
-  flex-direction: column;
+  /* Tabs stay on the viewport bottom; build strip stacks above and scrolls. */
+  flex-direction: column-reverse;
   align-items: center;
   gap: 0.6rem;
   padding: 0 1rem 1rem;
+  max-height: min(52vh, 520px);
+  min-height: 0;
 }
 
 .toolbar__tabs {
   display: flex;
   gap: 0.3rem;
   padding: 0.4rem;
+  flex-shrink: 0;
 }
 .tab {
   display: flex;
@@ -651,7 +656,11 @@ button {
 .buildbar {
   padding: 0.7rem 0.85rem;
   max-width: min(920px, 92vw);
+  max-height: min(38vh, 360px);
+  overflow-x: hidden;
+  overflow-y: auto;
   animation: fadeUp 0.2s ease both;
+  min-height: 0;
 }
 .buildbar__title {
   font-size: 0.68rem;
