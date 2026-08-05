@@ -240,7 +240,21 @@ export const BUILDINGS: BuildingDef[] = [
     size: [6, 2],
     color: "#3d6a4f",
     icon: "🏛️",
-    description: "The grand front gate where guests arrive and buy their tickets.",
+    description:
+      "The grand front gate where guests buy tickets. Open by day, closed at night — keep the parking lot maintained so crowds can arrive.",
+    upkeep: 4,
+  },
+  {
+    id: "parking-lot",
+    name: "Parking Lot",
+    category: "guest",
+    cost: 4500,
+    size: [12, 6],
+    color: "#5a5e66",
+    icon: "🅿️",
+    description:
+      "Visitor parking. Condition and capacity gate how many guests can arrive. Mechanics keep asphalt patched; expand south for more lot space.",
+    upkeep: 18,
   },
 
   /* --- Staff facilities -------------------------------------------------- */

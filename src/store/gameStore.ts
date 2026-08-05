@@ -60,6 +60,7 @@ import {
   dailyStaffWages,
   dailyUpkeep,
   expectedDailyGuests,
+  parkingArrivalFactor,
   settleDay,
   transactionRevenue,
   shopOpenFactor,
@@ -69,17 +70,15 @@ import {
   BIOME_CLIMATE,
   HALF,
   START_PLOT_SIZE,
-  PLOT_STEP,
-  MAX_PLOT_SIZE,
   alignFenceBuildings,
   canPlaceBuilding,
   collectFenceCells,
   floodFillEnclosure,
   footprintCenter,
   forgetEntity,
-  landExpansionCost,
   plotOffset,
   cellCenter,
+  worldToCell,
   spawnGuest as makeGuest,
   stepGuest,
   updateHabitatsFromBuildings,
@@ -89,6 +88,12 @@ import {
   guestWalkable,
   GUEST_FENCE_CLEARANCE,
 } from "../game/simulation";
+import {
+  createStarterParcels,
+  listBuyableParcels,
+  ownedExtent,
+  parcelsFromLegacyPlotSize,
+} from "../game/parcels";
 
 /* -------------------------------------------------------------------------- */
 /*  Tunables                                                                  */
@@ -198,7 +203,12 @@ export interface ZooStore extends GameState {
   createHabitat: (seed: Vec2, opts?: CreateHabitatOpts) => string | null;
   addAnimalToHabitat: (speciesId: string, habitatId: string, at?: Vec2) => void;
   hireStaff: (role: StaffRole) => void;
-  /** Expand the owned plot by PLOT_STEP if affordable. Returns false if blocked. */
+  /**
+   * Buy an adjacent land parcel by key (`"px,pz"`). Returns false if the parcel
+   * isn't buyable or cash is short.
+   */
+  buyParcel: (key: string) => boolean;
+  /** @deprecated Prefer buyParcel — buys the cheapest adjacent parcel. */
   buyLand: () => boolean;
   /** Change an existing habitat's biome (and matching climate). */
   setHabitatBiome: (habitatId: string, biome: Biome) => void;
@@ -255,14 +265,16 @@ function createInitialState(): GameState & ViewState {
     buildings[b.instanceId] = b;
   };
 
-  const plotSize = START_PLOT_SIZE;
-  const o = plotOffset(plotSize);
-  // Entrance on the south edge of the owned plot.
-  add(makeBuilding("entrance-arch", { x: o + plotSize / 2 - 3, z: o + plotSize - 4 }));
+  const ownedParcels = createStarterParcels();
+  const plotSize = ownedExtent(ownedParcels).plotSize;
+  const o = plotOffset(START_PLOT_SIZE);
+  // South strip: parking on the edge, entrance just north, path into the park.
+  add(makeBuilding("parking-lot", { x: o + START_PLOT_SIZE / 2 - 6, z: o + START_PLOT_SIZE - 7 }));
+  add(makeBuilding("entrance-arch", { x: o + START_PLOT_SIZE / 2 - 3, z: o + START_PLOT_SIZE - 10 }));
 
   // Path running north from the entrance toward the centre.
-  for (let z = o + plotSize - 6; z >= o + plotSize / 2; z -= 2) {
-    add(makeBuilding("path", { x: o + plotSize / 2 - 1, z }));
+  for (let z = o + START_PLOT_SIZE - 12; z >= o + START_PLOT_SIZE / 2; z -= 2) {
+    add(makeBuilding("path", { x: o + START_PLOT_SIZE / 2 - 1, z }));
   }
 
   return {
@@ -273,6 +285,7 @@ function createInitialState(): GameState & ViewState {
     speed: 1,
 
     finances: createFinances(75_000),
+    ownedParcels,
     plotSize,
 
     habitats: {},
@@ -344,8 +357,13 @@ function pathWaypoints(s: SimSlice): Vec2[] {
   return pts;
 }
 
-/** The entrance position guests spawn at (falls back to south-centre). */
-function entrancePosition(s: SimSlice): Vec2 {
+/** The entrance / parking arrival position guests spawn at. */
+function entrancePosition(s: SimSlice & Pick<GameState, "buildings">): Vec2 {
+  const parking = Object.values(s.buildings).find((b) => b.defId === "parking-lot");
+  if (parking) {
+    // Arrive at the north edge of the lot, walking toward the gate.
+    return { x: parking.position.x, z: parking.position.z - 2.2 };
+  }
   const arch = Object.values(s.buildings).find((b) => b.defId === "entrance-arch");
   return arch ? { x: arch.position.x, z: arch.position.z } : { x: 0, z: HALF - 2 };
 }
@@ -508,8 +526,11 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       guests[g.id] = { ...moved, patience, happiness: clamp(happiness, 0, 100) };
     }
 
-    // --- guest arrivals (none at night) ------------------------------------
-    const desired = Math.min(MAX_GUESTS, expectedDailyGuests(appeal, s.finances.ticketPrice));
+    // --- guest arrivals (none at night; limited by parking) ----------------
+    const desired = Math.min(
+      MAX_GUESTS,
+      Math.round(expectedDailyGuests(appeal, s.finances.ticketPrice) * parkingArrivalFactor(buildings)),
+    );
     let guestCount = Object.keys(guests).length;
     let ticketEarned = 0;
     const arriveMult = guestArrivalFactor(timeOfDay);
@@ -700,7 +721,7 @@ export const useGameStore = create<ZooStore>((set, get) => ({
         defId,
         hoverCell,
         s.build.rotation,
-        s.plotSize,
+        s.ownedParcels,
       );
       return { hoverCell, build: { ...s.build, valid } };
     }),
@@ -711,7 +732,7 @@ export const useGameStore = create<ZooStore>((set, get) => ({
     const s = get();
     const def = getBuilding(defId);
     if (!def) return;
-    if (!canPlaceBuilding(s.buildings, defId, cell, rotation, s.plotSize)) return;
+    if (!canPlaceBuilding(s.buildings, defId, cell, rotation, s.ownedParcels)) return;
     if (s.finances.cash < def.cost) return;
 
     const building = makeBuilding(defId, cell, rotation);
@@ -727,7 +748,10 @@ export const useGameStore = create<ZooStore>((set, get) => ({
 
   demolish: (instanceId) => {
     const s = get();
-    if (!s.buildings[instanceId]) return;
+    const building = s.buildings[instanceId];
+    if (!building) return;
+    // The entrance is permanent — tear down parking/amenities freely.
+    if (building.defId === "entrance-arch") return;
     const buildings = { ...s.buildings };
     delete buildings[instanceId];
     const habitats = updateHabitatsFromBuildings(s.habitats, buildings);
@@ -889,16 +913,26 @@ export const useGameStore = create<ZooStore>((set, get) => ({
     set({ staff: { ...s.staff, [id]: member }, finances: applyPurchase(s.finances, def.hireCost) });
   },
 
-  buyLand: () => {
+  buyParcel: (key) => {
     const s = get();
-    if (s.plotSize >= MAX_PLOT_SIZE) return false;
-    const cost = landExpansionCost(s.plotSize);
-    if (s.finances.cash < cost) return false;
+    const offer = listBuyableParcels(s.ownedParcels).find((p) => p.key === key);
+    if (!offer) return false;
+    if (s.finances.cash < offer.cost) return false;
+    if (s.ownedParcels.includes(key)) return false;
+    const ownedParcels = [...s.ownedParcels, key];
     set({
-      plotSize: Math.min(MAX_PLOT_SIZE, s.plotSize + PLOT_STEP),
-      finances: applyPurchase(s.finances, cost),
+      ownedParcels,
+      plotSize: ownedExtent(ownedParcels).plotSize,
+      finances: applyPurchase(s.finances, offer.cost),
     });
     return true;
+  },
+
+  buyLand: () => {
+    const s = get();
+    const offers = listBuyableParcels(s.ownedParcels);
+    if (!offers.length) return false;
+    return get().buyParcel(offers[0]!.key);
   },
 
   /* ---- selection & finance ---- */
@@ -936,7 +970,9 @@ interface SavedPark {
     | "buildings"
     | "unlockedSpecies"
     | "stats"
-  >;
+  > & {
+    ownedParcels?: string[];
+  };
 }
 
 /** Whether a saved park exists in localStorage (used by the title screen). */
@@ -963,6 +999,7 @@ export function saveGame(): boolean {
         speed: s.speed,
         finances: s.finances,
         plotSize: s.plotSize,
+        ownedParcels: s.ownedParcels,
         habitats: s.habitats,
         animals: s.animals,
         guests: s.guests,
@@ -1014,12 +1051,34 @@ export function loadGame(): boolean {
       }
       animals[id] = next;
     }
+    const ownedParcels =
+      parsed.state.ownedParcels?.length
+        ? parsed.state.ownedParcels
+        : parcelsFromLegacyPlotSize(parsed.state.plotSize ?? START_PLOT_SIZE);
+    const extent = ownedExtent(ownedParcels);
+
+    // Older parks may lack a parking lot — seed one by the entrance if missing.
+    let buildingsWithParking = buildings;
+    const hasParking = Object.values(buildings).some((b) => b.defId === "parking-lot");
+    if (!hasParking) {
+      const arch = Object.values(buildings).find((b) => b.defId === "entrance-arch");
+      if (arch) {
+        const cell = {
+          x: worldToCell(arch.position.x) - 6,
+          z: worldToCell(arch.position.z) + 2,
+        };
+        const lot = makeBuilding("parking-lot", cell);
+        buildingsWithParking = { ...buildings, [lot.instanceId]: lot };
+      }
+    }
+
     useGameStore.setState({
       ...parsed.state,
-      buildings,
+      buildings: buildingsWithParking,
       habitats,
       animals,
-      plotSize: parsed.state.plotSize ?? START_PLOT_SIZE,
+      ownedParcels,
+      plotSize: extent.plotSize,
       paused: false,
       selection: null,
       hoverCell: null,

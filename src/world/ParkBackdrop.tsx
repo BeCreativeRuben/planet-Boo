@@ -12,16 +12,16 @@ import { useRef } from "react";
 
 import { useGameStore } from "../store/gameStore";
 import { MAX_MAP_SIZE } from "../game/simulation";
+import { ownedBoundaryEdges } from "../game/parcels";
 
 export function ParkBackdrop() {
   const timeOfDay = useGameStore((s) => s.timeOfDay);
-  const plotSize = useGameStore((s) => s.plotSize);
 
   return (
     <group>
       <SkyDome timeOfDay={timeOfDay} />
       <DistantHills />
-      <WildernessRing plotSize={plotSize} />
+      <WildernessRing />
       <HorizonHaze />
       <CloudBand timeOfDay={timeOfDay} />
     </group>
@@ -108,16 +108,17 @@ function DistantHills() {
   );
 }
 
-function WildernessRing({ plotSize }: { plotSize: number }) {
+function WildernessRing() {
   const geo = useMemo(() => {
-    const g = new THREE.RingGeometry(plotSize / 2 + 0.5, MAX_MAP_SIZE / 2 + 8, 96);
+    // Outer wild ring beyond the absolute map — owned holes are painted by Terrain.
+    const g = new THREE.RingGeometry(MAX_MAP_SIZE / 2 + 0.5, MAX_MAP_SIZE / 2 + 18, 96);
     g.rotateX(-Math.PI / 2);
     return g;
-  }, [plotSize]);
+  }, []);
 
   return (
-    <mesh geometry={geo} position={[0, -0.02, 0]} receiveShadow>
-      <meshStandardMaterial color="#5c7348" roughness={1} />
+    <mesh geometry={geo} position={[0, -0.03, 0]} receiveShadow>
+      <meshStandardMaterial color="#4f6640" roughness={1} />
     </mesh>
   );
 }
@@ -172,49 +173,22 @@ function CloudBand({ timeOfDay }: { timeOfDay: number }) {
   );
 }
 
-/** Soft boundary posts marking the owned plot edge. */
+/** Soft amber edges marking owned parcel boundaries against wilderness. */
 export function PlotBoundary() {
-  const plotSize = useGameStore((s) => s.plotSize);
-  const half = plotSize / 2;
-  const min = -half;
-  const max = half;
-
-  const posts = useMemo(() => {
-    const pts: [number, number][] = [];
-    const step = Math.max(4, Math.floor(plotSize / 12));
-    for (let x = min; x <= max; x += step) {
-      pts.push([x, min]);
-      pts.push([x, max]);
-    }
-    for (let z = min + step; z < max; z += step) {
-      pts.push([min, z]);
-      pts.push([max, z]);
-    }
-    return pts;
-  }, [min, max, plotSize]);
+  const ownedKey = useGameStore((s) => s.ownedParcels.join("|"));
+  const ownedParcels = useGameStore((s) => s.ownedParcels);
+  const edges = useMemo(() => ownedBoundaryEdges(ownedParcels), [ownedKey, ownedParcels]);
 
   return (
     <group>
-      <mesh position={[0, 0.07, min]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[plotSize, 0.35]} />
-        <meshBasicMaterial color="#c9a227" transparent opacity={0.35} depthWrite={false} />
-      </mesh>
-      <mesh position={[0, 0.07, max]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[plotSize, 0.35]} />
-        <meshBasicMaterial color="#c9a227" transparent opacity={0.35} depthWrite={false} />
-      </mesh>
-      <mesh position={[min, 0.07, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
-        <planeGeometry args={[plotSize, 0.35]} />
-        <meshBasicMaterial color="#c9a227" transparent opacity={0.35} depthWrite={false} />
-      </mesh>
-      <mesh position={[max, 0.07, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
-        <planeGeometry args={[plotSize, 0.35]} />
-        <meshBasicMaterial color="#c9a227" transparent opacity={0.35} depthWrite={false} />
-      </mesh>
-      {posts.map(([x, z], i) => (
-        <mesh key={i} position={[x, 0.55, z]}>
-          <cylinderGeometry args={[0.08, 0.1, 1.1, 5]} />
-          <meshStandardMaterial color="#6b5230" roughness={0.9} />
+      {edges.map((e, i) => (
+        <mesh
+          key={i}
+          position={[e.x, 0.07, e.z]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <planeGeometry args={[e.w, e.d]} />
+          <meshBasicMaterial color="#c9a227" transparent opacity={0.4} depthWrite={false} />
         </mesh>
       ))}
     </group>

@@ -919,6 +919,48 @@ button {
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+.parcel-map {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-self: center;
+  padding: 0.45rem;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.parcel-map__row {
+  display: flex;
+  gap: 3px;
+}
+.parcel-map__cell {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(60, 70, 55, 0.55);
+  padding: 0;
+  cursor: default;
+}
+.parcel-map__cell--owned {
+  background: linear-gradient(160deg, #6f9a45, #4f7a32);
+  border-color: rgba(180, 220, 120, 0.35);
+}
+.parcel-map__cell--buy {
+  background: linear-gradient(160deg, #e7b84a, #c98420);
+  border-color: rgba(255, 220, 140, 0.55);
+  cursor: pointer;
+  box-shadow: 0 0 0 1px rgba(231, 154, 43, 0.25);
+}
+.parcel-map__cell--buy:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+.parcel-map__cell--buy:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .finance__price-head {
   display: flex;
   align-items: baseline;

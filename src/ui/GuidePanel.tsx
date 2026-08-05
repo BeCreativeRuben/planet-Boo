@@ -91,8 +91,9 @@ const CONTENT: Record<SectionId, ReactNode> = {
         </li>
       </ol>
       <p className="guide__tip">
-        Need more room? Open Finances (click Balance) and buy land — each purchase
-        expands the amber plot boundary into the wilderness.
+        Need more room? Open Finances (click Balance) and buy individual land plots on
+        the map — expand any direction. South plots sit by parking and the entrance;
+        keep the lot maintained so guests can arrive.
       </p>
     </>
   ),
@@ -272,6 +273,11 @@ const CONTENT: Record<SectionId, ReactNode> = {
           <strong>Park hours</strong> — guests arrive through the day and clear out at
           dusk. Shops close at night; keepers and mechanics work faster while the park
           is empty. Speed up overnight if you&apos;d rather jump to dawn.
+        </li>
+        <li>
+          <strong>Parking</strong> — arrivals scale with parking condition and how many
+          lots you&apos;ve built. Expand south from Finances, place extra lots (Guest tab),
+          and hire mechanics so asphalt doesn&apos;t choke the gates.
         </li>
       </ul>
       <p className="guide__tip">
