@@ -50,8 +50,8 @@ export default function HUD() {
       </div>
 
       <div className="toolbar">
-        {activeTab && <BuildBar tab={activeTab} />}
         <Toolbar />
+        {activeTab && <BuildBar tab={activeTab} />}
       </div>
 
       <FinancePanel />
