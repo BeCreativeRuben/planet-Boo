@@ -1033,7 +1033,17 @@ button {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 .parcel-map--preview {
-  pointer-events: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.parcel-map--preview:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+.parcel-map--preview:not(:disabled):hover {
+  border-color: rgba(231, 184, 74, 0.45);
+  filter: brightness(1.06);
 }
 .parcel-map__edge {
   position: absolute;

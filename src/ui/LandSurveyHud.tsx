@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { listBuyableParcels, ownedExtent } from "../game/parcels";
 import { useGameStore } from "../store/gameStore";
 import { useUIStore } from "../store/uiStore";
@@ -14,15 +13,6 @@ export default function LandSurveyHud() {
   const openFinance = useUIStore((s) => s.openFinance);
   const cash = useGameStore((s) => s.finances.cash);
   const ownedParcels = useGameStore((s) => s.ownedParcels);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, close]);
 
   if (!open) return null;
 
