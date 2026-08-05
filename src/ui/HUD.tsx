@@ -25,6 +25,7 @@ import AnimalPanel, { FactorBar, toneFor } from "./AnimalPanel";
 import Notifications from "./Notifications";
 import FinancePanel from "./FinancePanel";
 import GuidePanel from "./GuidePanel";
+import AnimalOverview from "./AnimalOverview";
 
 const money = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
@@ -55,6 +56,7 @@ export default function HUD() {
 
       <FinancePanel />
       <GuidePanel />
+      <AnimalOverview />
     </div>
   );
 }
@@ -91,6 +93,7 @@ function TopBar() {
   const setPaused = useGameStore((s) => s.setPaused);
   const toggleFinance = useUIStore((s) => s.toggleFinance);
   const toggleGuide = useUIStore((s) => s.toggleGuide);
+  const toggleAnimals = useUIStore((s) => s.toggleAnimals);
 
   const appeal = parkAppeal(animals);
   const welfare = Math.round(stats.averageAnimalWelfare);
@@ -137,7 +140,11 @@ function TopBar() {
         <span className="stat__value">{stats.guestCount}</span>
       </div>
 
-      <div className="stat">
+      <div
+        className="stat stat--clickable"
+        onClick={toggleAnimals}
+        title="Animal overview — all animals in the park"
+      >
         <span className="stat__label">Welfare</span>
         <span className="stat__value" style={{ color: toneFor(welfare) }}>
           {welfare}%
@@ -155,6 +162,14 @@ function TopBar() {
       </div>
 
       <div className="topbar__controls">
+        <button
+          type="button"
+          className="ctrl"
+          onClick={toggleAnimals}
+          title="Animal overview"
+        >
+          🐾
+        </button>
         <button
           type="button"
           className="ctrl"
