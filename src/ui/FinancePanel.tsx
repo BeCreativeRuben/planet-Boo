@@ -15,13 +15,14 @@ import {
   ledgerNet,
   TICKET_PRICE_RANGE,
 } from "../game/economy";
-import {
-  landExpansionCost,
-  MAX_PLOT_SIZE,
-  PLOT_STEP,
-} from "../game/simulation";
 import { useGameStore } from "../store/gameStore";
 import { useUIStore } from "../store/uiStore";
+import {
+  PARCELS_AXIS,
+  listBuyableParcels,
+  ownedExtent,
+  parcelKey,
+} from "../game/parcels";
 
 /** Signed currency, e.g. -$1,240. */
 function money(n: number): string {
@@ -64,9 +65,9 @@ export default function FinancePanel() {
   const animals = useGameStore((s) => s.animals);
   const staff = useGameStore((s) => s.staff);
   const buildings = useGameStore((s) => s.buildings);
-  const plotSize = useGameStore((s) => s.plotSize);
+  const ownedParcels = useGameStore((s) => s.ownedParcels);
   const setTicketPrice = useGameStore((s) => s.setTicketPrice);
-  const buyLand = useGameStore((s) => s.buyLand);
+  const buyParcel = useGameStore((s) => s.buyParcel);
 
   if (!open) return null;
 
@@ -78,9 +79,11 @@ export default function FinancePanel() {
   const wageDay = dailyStaffWages(staff);
   const upkeepDay = dailyUpkeep(buildings);
   const [minPrice, maxPrice] = TICKET_PRICE_RANGE;
-  const landCost = landExpansionCost(plotSize);
-  const canExpand = plotSize < MAX_PLOT_SIZE && finances.cash >= landCost;
-  const maxed = plotSize >= MAX_PLOT_SIZE;
+  const extent = ownedExtent(ownedParcels);
+  const buyable = listBuyableParcels(ownedParcels);
+  const buyableMap = new Map(buyable.map((b) => [b.key, b]));
+  const maxed = buyable.length === 0;
+  const ownedSet = new Set(ownedParcels);
 
   return (
     <div className="modal" role="dialog" aria-modal="true" aria-label="Finances">
@@ -138,23 +141,53 @@ export default function FinancePanel() {
           <div className="finance__price-head">
             <span>Park land</span>
             <strong>
-              {plotSize}×{plotSize} m
+              {ownedParcels.length} plots · {Math.round(extent.width)}×{Math.round(extent.depth)} m
             </strong>
           </div>
           <p className="finance__hint">
             {maxed
-              ? "You've bought every available parcel — the park is fully expanded."
-              : `Buy +${PLOT_STEP} m on each side (wilderness becomes buildable grass).`}
+              ? "You've bought every reachable parcel."
+              : "Click an amber plot to expand that way. South plots sit by the parking entrance."}
           </p>
-          <button
-            type="button"
-            className="btn btn--amber"
-            disabled={!canExpand}
-            onClick={() => buyLand()}
-            title={maxed ? "Fully expanded" : `Expand for ${money(landCost)}`}
-          >
-            {maxed ? "Land fully owned" : `Buy land · ${money(landCost)}`}
-          </button>
+          <div className="parcel-map" role="grid" aria-label="Buyable land parcels">
+            {Array.from({ length: PARCELS_AXIS }, (_, row) => {
+              const pz = PARCELS_AXIS - 1 - row;
+              return (
+                <div key={pz} className="parcel-map__row">
+                  {Array.from({ length: PARCELS_AXIS }, (_, px) => {
+                    const key = parcelKey(px, pz);
+                    const owned = ownedSet.has(key);
+                    const offer = buyableMap.get(key);
+                    const cls = owned
+                      ? "parcel-map__cell parcel-map__cell--owned"
+                      : offer
+                        ? "parcel-map__cell parcel-map__cell--buy"
+                        : "parcel-map__cell";
+                    const title = owned
+                      ? `Owned plot (${px},${pz})`
+                      : offer
+                        ? `Buy ${offer.direction} · ${money(offer.cost)}`
+                        : "Locked — buy adjacent land first";
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        className={cls}
+                        disabled={!offer || finances.cash < (offer?.cost ?? 0)}
+                        title={title}
+                        onClick={() => offer && buyParcel(offer.key)}
+                      />
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+          {!maxed && buyable[0] && (
+            <p className="finance__hint">
+              Cheapest adjacent: {buyable[0].direction} · {money(buyable[0].cost)}
+            </p>
+          )}
         </div>
 
         <div className="ledger">

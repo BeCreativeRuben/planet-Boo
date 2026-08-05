@@ -20,6 +20,8 @@ import {
   shopOpenLabel,
   transactionRevenue,
   vendorBoost,
+  parkingSummary,
+  entranceOpenLabel,
 } from "../game/economy";
 import {
   getDayPhase,
@@ -398,6 +400,8 @@ function BuildingInspector({ id }: { id: string }) {
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const guests = useGameStore((s) => s.guests);
   const staff = useGameStore((s) => s.staff);
+  const buildings = useGameStore((s) => s.buildings);
+  const ticketPrice = useGameStore((s) => s.finances.ticketPrice);
   const avgHappy = useGameStore((s) => s.stats.averageGuestHappiness);
   const demolish = useGameStore((s) => s.demolish);
   if (!b) return null;
@@ -405,8 +409,12 @@ function BuildingInspector({ id }: { id: string }) {
   if (!def) return null;
 
   const isShop = !!def.revenuePerUse;
+  const isEntrance = b.defId === "entrance-arch";
+  const isParking = b.defId === "parking-lot";
   const openFactor = shopOpenFactor(timeOfDay, b.condition);
   const openLabel = shopOpenLabel(openFactor, b.condition);
+  const parking = parkingSummary(buildings);
+  const gateLabel = entranceOpenLabel(timeOfDay, b.condition);
   const vendorCount = Object.values(staff).filter((m) => m.role === "vendor").length;
   const guestCount = Object.keys(guests).length;
   const estDay =
@@ -427,6 +435,67 @@ function BuildingInspector({ id }: { id: string }) {
           <p>{def.category}</p>
         </div>
       </header>
+
+      {isEntrance && (
+        <>
+          <p
+            className="inspector__note"
+            style={{ color: openFactor > 0 ? "#5fc07a" : "#e0655a", fontWeight: 700 }}
+          >
+            {gateLabel}
+          </p>
+          <dl className="animal-panel__facts">
+            <div>
+              <dt>Guests in park</dt>
+              <dd>{guestCount.toLocaleString()}</dd>
+            </div>
+            <div>
+              <dt>Parking</dt>
+              <dd>{parking.label}</dd>
+            </div>
+            <div>
+              <dt>Ticket</dt>
+              <dd>${ticketPrice}</dd>
+            </div>
+          </dl>
+          <p className="inspector__note">
+            Guests arrive through parking. Expand south for more lot space, and keep
+            asphalt maintained so crowds keep coming.
+          </p>
+        </>
+      )}
+
+      {isParking && (
+        <>
+          <p
+            className="inspector__note"
+            style={{
+              color: b.condition < 40 ? "#e0655a" : "#5fc07a",
+              fontWeight: 700,
+            }}
+          >
+            {parking.label}
+          </p>
+          <dl className="animal-panel__facts">
+            <div>
+              <dt>Lots</dt>
+              <dd>{parking.lots}</dd>
+            </div>
+            <div>
+              <dt>Avg condition</dt>
+              <dd>{parking.avgCondition}%</dd>
+            </div>
+            <div>
+              <dt>Arrival boost</dt>
+              <dd>×{parking.factor.toFixed(2)}</dd>
+            </div>
+          </dl>
+          <p className="inspector__note">
+            Hire mechanics to patch cracks. Place extra lots on owned land (Guest tab)
+            after expanding.
+          </p>
+        </>
+      )}
 
       {isShop && (
         <>
@@ -472,9 +541,11 @@ function BuildingInspector({ id }: { id: string }) {
         <p className="inspector__note">Upkeep ${def.upkeep}/day</p>
       )}
       <p className="inspector__note">{def.description}</p>
-      <button type="button" className="btn btn--danger" onClick={() => demolish(id)}>
-        Demolish
-      </button>
+      {!isEntrance && (
+        <button type="button" className="btn btn--danger" onClick={() => demolish(id)}>
+          Demolish
+        </button>
+      )}
     </div>
   );
 }

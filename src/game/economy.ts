@@ -170,6 +170,57 @@ export function expectedDailyGuests(appeal: number, ticketPrice: number): number
   return Math.max(0, Math.round(appeal * 6 * priceFactor));
 }
 
+/**
+ * How well parking supports arrivals (0.15..1.35).
+ * No lot → trickle of walk-ups; ruined lots choke the gates; more lots raise capacity.
+ */
+export function parkingArrivalFactor(buildings: Record<string, Building>): number {
+  const lots = Object.values(buildings).filter((b) => b.defId === "parking-lot");
+  if (lots.length === 0) return 0.4;
+  let capacity = 0;
+  let conditionSum = 0;
+  for (const lot of lots) {
+    const cond = Math.max(0, Math.min(1, lot.condition / 100));
+    capacity += 45 * cond;
+    conditionSum += lot.condition;
+  }
+  const avg = conditionSum / lots.length;
+  if (avg < 15) return 0.15;
+  if (avg < 40) return 0.45 + capacity / 200;
+  return Math.min(1.35, 0.55 + capacity / 140);
+}
+
+export function parkingSummary(buildings: Record<string, Building>): {
+  lots: number;
+  avgCondition: number;
+  factor: number;
+  label: string;
+} {
+  const lots = Object.values(buildings).filter((b) => b.defId === "parking-lot");
+  const factor = parkingArrivalFactor(buildings);
+  if (lots.length === 0) {
+    return { lots: 0, avgCondition: 0, factor, label: "No parking — walk-up traffic only" };
+  }
+  const avgCondition = Math.round(
+    lots.reduce((n, b) => n + b.condition, 0) / lots.length,
+  );
+  let label = "Parking OK";
+  if (avgCondition < 15) label = "Parking closed — needs repair";
+  else if (avgCondition < 40) label = "Parking poor — arrivals limited";
+  else if (lots.length >= 2) label = "Plenty of parking";
+  else label = "Parking open";
+  return { lots: lots.length, avgCondition, factor, label };
+}
+
+/** Entrance gate hours (mirrors shop hours). */
+export function entranceOpenLabel(timeOfDay: number, condition: number): string {
+  if (condition < 15) return "Gate closed — needs repair";
+  const factor = shopOpenFactor(timeOfDay, condition);
+  if (factor <= 0) return "Gate closed for the night";
+  if (factor < 0.8) return "Gates opening / closing";
+  return "Gates open — tickets on sale";
+}
+
 /** Revenue from a single guest transaction at a revenue building. */
 export function transactionRevenue(def: BuildingDef, guestHappiness: number): number {
   const base = def.revenuePerUse ?? 0;

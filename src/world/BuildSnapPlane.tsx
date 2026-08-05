@@ -17,7 +17,6 @@ import * as THREE from "three";
 import { useGameStore } from "../store/gameStore";
 import {
   worldToCell,
-  inPlot,
   cellCenter,
   collectFenceCells,
   fenceRotationFromNeighbors,
@@ -25,14 +24,15 @@ import {
   footprintCells,
   footprintCenter,
 } from "../game/simulation";
+import { isOwnedCell, ownedExtent } from "../game/parcels";
 import { getBuilding } from "../game/buildings";
 import { getSpecies } from "../game/species";
 import type { Habitat, Vec2 } from "../game/types";
 
-function cellFromPoint(point: THREE.Vector3, plotSize: number): Vec2 | null {
+function cellFromPoint(point: THREE.Vector3, ownedParcels: readonly string[]): Vec2 | null {
   const cx = worldToCell(point.x);
   const cz = worldToCell(point.z);
-  if (!inPlot(cx, plotSize) || !inPlot(cz, plotSize)) return null;
+  if (!isOwnedCell(cx, cz, ownedParcels)) return null;
   return { x: cx, z: cz };
 }
 
@@ -106,7 +106,8 @@ function reorientFenceAt(cell: Vec2, rotation: number) {
 export function BuildSnapPlane() {
   const active = useGameStore((s) => s.build.active);
   const tool = useGameStore((s) => s.build.tool);
-  const plotSize = useGameStore((s) => s.plotSize);
+  const ownedParcels = useGameStore((s) => s.ownedParcels);
+  const extent = ownedExtent(ownedParcels);
   const controls = useThree((s) => s.controls) as { enabled?: boolean } | null;
 
   const painting = useRef(false);
@@ -122,12 +123,12 @@ export function BuildSnapPlane() {
 
   // Animal adopt: click inside a matching habitat to buy & place.
   if (tool === "animal") {
-    return <AnimalSnapPlane plotSize={plotSize} />;
+    return <AnimalSnapPlane ownedParcels={ownedParcels} extent={extent} />;
   }
 
   // Claim tool: click inside a closed fence to register a habitat.
   if (tool === "claim") {
-    return <ClaimSnapPlane plotSize={plotSize} />;
+    return <ClaimSnapPlane ownedParcels={ownedParcels} extent={extent} />;
   }
 
   const setControlsEnabled = (on: boolean) => {
@@ -153,7 +154,7 @@ export function BuildSnapPlane() {
 
   const onPointerMove = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
-    const cell = cellFromPoint(e.point, plotSize);
+    const cell = cellFromPoint(e.point, ownedParcels);
     if (!cell) {
       updateHover(null);
       return;
@@ -196,7 +197,7 @@ export function BuildSnapPlane() {
   const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
     if (e.button !== 0) return;
     e.stopPropagation();
-    const cell = cellFromPoint(e.point, plotSize);
+    const cell = cellFromPoint(e.point, ownedParcels);
     if (!cell) return;
     const defId = resolvePlaceId();
     if (!defId) return;
@@ -240,7 +241,7 @@ export function BuildSnapPlane() {
     <group>
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0.04, 0]}
+        position={[extent.cx, 0.04, extent.cz]}
         onPointerMove={onPointerMove}
         onPointerDown={onPointerDown}
         onPointerUp={endPaint}
@@ -250,7 +251,7 @@ export function BuildSnapPlane() {
         }}
         onClick={onClick}
       >
-        <planeGeometry args={[plotSize, plotSize]} />
+        <planeGeometry args={[extent.width + 2, extent.depth + 2]} />
         <meshBasicMaterial
           transparent
           opacity={0}
@@ -308,7 +309,13 @@ function canAdoptInto(speciesId: string, habitat: Habitat, cash: number): boolea
 }
 
 /** Click inside a habitat to buy & place the selected species. */
-function AnimalSnapPlane({ plotSize }: { plotSize: number }) {
+function AnimalSnapPlane({
+  ownedParcels,
+  extent,
+}: {
+  ownedParcels: readonly string[];
+  extent: ReturnType<typeof ownedExtent>;
+}) {
   const controls = useThree((s) => s.controls) as { enabled?: boolean } | null;
 
   const syncHover = (point: THREE.Vector3 | null) => {
@@ -319,7 +326,7 @@ function AnimalSnapPlane({ plotSize }: { plotSize: number }) {
       store.setBuildMode({ valid: false });
       return;
     }
-    const cell = cellFromPoint(point, plotSize);
+    const cell = cellFromPoint(point, ownedParcels);
     const habitat = habitatAtWorld(store.habitats, point.x, point.z);
     const valid = !!habitat && canAdoptInto(speciesId, habitat, store.finances.cash);
     store.setHoverCell(cell);
@@ -357,7 +364,7 @@ function AnimalSnapPlane({ plotSize }: { plotSize: number }) {
     <group>
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0.04, 0]}
+        position={[extent.cx, 0.04, extent.cz]}
         onPointerMove={onPointerMove}
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
@@ -366,7 +373,7 @@ function AnimalSnapPlane({ plotSize }: { plotSize: number }) {
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <planeGeometry args={[plotSize, plotSize]} />
+        <planeGeometry args={[extent.width + 2, extent.depth + 2]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
       <SnapCellHighlight />
@@ -375,19 +382,25 @@ function AnimalSnapPlane({ plotSize }: { plotSize: number }) {
 }
 
 /** Click-to-claim plane for registering a fenced enclosure as a habitat. */
-function ClaimSnapPlane({ plotSize }: { plotSize: number }) {
+function ClaimSnapPlane({
+  ownedParcels,
+  extent,
+}: {
+  ownedParcels: readonly string[];
+  extent: ReturnType<typeof ownedExtent>;
+}) {
   const controls = useThree((s) => s.controls) as { enabled?: boolean } | null;
 
   const onPointerMove = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
-    const cell = cellFromPoint(e.point, plotSize);
+    const cell = cellFromPoint(e.point, ownedParcels);
     useGameStore.getState().setHoverCell(cell);
   };
 
   const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
     if (e.button !== 0) return;
     e.stopPropagation();
-    const cell = cellFromPoint(e.point, plotSize);
+    const cell = cellFromPoint(e.point, ownedParcels);
     if (!cell) return;
     if (controls && "enabled" in controls) controls.enabled = false;
     useGameStore.getState().createHabitat(cell);
@@ -401,14 +414,14 @@ function ClaimSnapPlane({ plotSize }: { plotSize: number }) {
     <group>
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0.04, 0]}
+        position={[extent.cx, 0.04, extent.cz]}
         onPointerMove={onPointerMove}
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
         onPointerOut={() => useGameStore.getState().setHoverCell(null)}
         onClick={(e) => e.stopPropagation()}
       >
-        <planeGeometry args={[plotSize, plotSize]} />
+        <planeGeometry args={[extent.width + 2, extent.depth + 2]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
       <SnapCellHighlight />

@@ -25,6 +25,7 @@ import type {
   Vec2,
 } from "./types";
 import { getBuilding } from "./buildings";
+import { isOwnedCell } from "./parcels";
 
 /* -------------------------------------------------------------------------- */
 /*  Grid / coordinate constants + helpers                                     */
@@ -60,12 +61,10 @@ export function inPlot(c: number, plotSize: number): boolean {
   return c >= o && c < o + plotSize;
 }
 
-/** @deprecated Use inWorld / inPlot. */
-export function inBounds(c: number): boolean {
-  return inWorld(c);
-}
-
-/** Cost to expand from current plotSize by one PLOT_STEP. */
+/**
+ * @deprecated Prefer parcelPurchaseCost / listBuyableParcels — kept for any
+ * leftover callers during the directional-plot migration.
+ */
 export function landExpansionCost(plotSize: number): number {
   if (plotSize >= MAX_PLOT_SIZE) return Number.POSITIVE_INFINITY;
   const tier = Math.max(0, Math.round((plotSize - START_PLOT_SIZE) / PLOT_STEP));
@@ -284,17 +283,22 @@ export function canPlaceBuilding(
   defId: string,
   cell: Vec2,
   rotation = 0,
-  plotSize: number = START_PLOT_SIZE,
+  ownedParcels: readonly string[] = [],
 ): boolean {
   const def = getBuilding(defId);
   if (!def) return false;
   const [w, d] = footprintSize(def, rotation);
   const occupied = occupiedCells(buildings);
+  const owned = ownedParcels.length ? ownedParcels : null;
   for (let i = 0; i < w; i++) {
     for (let j = 0; j < d; j++) {
       const cx = cell.x + i;
       const cz = cell.z + j;
-      if (!inPlot(cx, plotSize) || !inPlot(cz, plotSize)) return false;
+      if (owned) {
+        if (!isOwnedCell(cx, cz, owned)) return false;
+      } else if (!inWorld(cx) || !inWorld(cz)) {
+        return false;
+      }
       if (occupied.has(key(cx, cz))) return false;
     }
   }

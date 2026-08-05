@@ -305,8 +305,14 @@ export interface GameState {
   finances: Finances;
 
   /**
-   * Edge length of the owned plot in cells (centred in the world).
-   * Starts at 80; each land purchase grows it toward MAX_PLOT_SIZE.
+   * Owned land as parcel keys `"px,pz"` (see game/parcels.ts).
+   * Expand by buying adjacent parcels in any direction.
+   */
+  ownedParcels: string[];
+
+  /**
+   * @deprecated Derived square edge for older UI; prefer ownedExtent(ownedParcels).
+   * Kept in saves for migration and as a rough camera extent.
    */
   plotSize: number;
 

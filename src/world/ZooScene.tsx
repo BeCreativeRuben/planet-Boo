@@ -20,6 +20,7 @@ import { BuildSnapPlane } from "./BuildSnapPlane";
 import { HabitatHighlights } from "./HabitatHighlights";
 import { CameraRig } from "./CameraRig";
 import { ParkBackdrop, PlotBoundary } from "./ParkBackdrop";
+import { ownedExtent } from "../game/parcels";
 
 function SimulationDriver() {
   const step = useGameStore((s) => s.step);
@@ -31,14 +32,19 @@ function SimulationDriver() {
 
 function Daylight() {
   const timeOfDay = useGameStore((s) => s.timeOfDay);
-  const plotSize = useGameStore((s) => s.plotSize);
+  const ownedParcels = useGameStore((s) => s.ownedParcels);
+  const extent = ownedExtent(ownedParcels);
   const t = timeOfDay;
   const dayness = Math.max(0.15, Math.sin(Math.PI * Math.min(1, Math.max(0, t))));
   const sunIntensity = 0.55 + dayness * 1.2;
   const warmth = 1 - dayness;
   const sunColor = new THREE.Color().setHSL(0.11 - warmth * 0.03, 0.55, 0.62 + dayness * 0.08);
   const ambientColor = new THREE.Color().setHSL(0.25, 0.25, 0.55);
-  const extent = Math.max(plotSize, 80) / 2 + 20;
+  const pad = 20;
+  const left = extent.minX - pad;
+  const right = extent.maxX + pad;
+  const top = extent.maxZ + pad;
+  const bottom = extent.minZ - pad;
 
   return (
     <>
@@ -53,10 +59,10 @@ function Daylight() {
         shadow-mapSize-height={2048}
         shadow-camera-near={1}
         shadow-camera-far={280}
-        shadow-camera-left={-extent}
-        shadow-camera-right={extent}
-        shadow-camera-top={extent}
-        shadow-camera-bottom={-extent}
+        shadow-camera-left={left}
+        shadow-camera-right={right}
+        shadow-camera-top={top}
+        shadow-camera-bottom={bottom}
         shadow-bias={-0.0004}
       />
     </>
@@ -71,8 +77,9 @@ function Atmosphere() {
 }
 
 export function ZooScene() {
-  const plotSize = useGameStore((s) => s.plotSize);
-  const maxDist = Math.min(160, 70 + plotSize * 0.5);
+  const ownedParcels = useGameStore((s) => s.ownedParcels);
+  const extent = ownedExtent(ownedParcels);
+  const maxDist = Math.min(160, 70 + extent.plotSize * 0.5);
 
   return (
     <Canvas

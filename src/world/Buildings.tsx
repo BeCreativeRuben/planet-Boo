@@ -10,6 +10,7 @@ import type { ThreeEvent } from "@react-three/fiber";
 
 import { useGameStore } from "../store/gameStore";
 import { getBuilding } from "../game/buildings";
+import { shopOpenFactor } from "../game/economy";
 import type { Building, BuildingDef } from "../game/types";
 
 interface MeshProps {
@@ -550,7 +551,11 @@ function ViewingGalleryMesh({ def, w, d }: MeshProps) {
 }
 
 function EntranceArchMesh({ def, w }: MeshProps) {
+  const timeOfDay = useGameStore((s) => s.timeOfDay);
+  const open = shopOpenFactor(timeOfDay, 100) > 0;
   const h = 3.2;
+  // Gates swing closed at night (rotate toward the opening).
+  const gateAngle = open ? 0.95 : 0.08;
   return (
     <group>
       {[-w * 0.38, w * 0.38].map((x) => (
@@ -576,6 +581,90 @@ function EntranceArchMesh({ def, w }: MeshProps) {
       <mesh position={[-w * 0.15, 1.15, 0.96]}>
         <boxGeometry args={[0.7, 0.4, 0.05]} />
         {mat("#a8d4e8", 0.2, 0.3)}
+      </mesh>
+      {/* Swinging gate leaves */}
+      <group position={[-w * 0.22, 0, 0.05]} rotation={[0, gateAngle, 0]}>
+        <mesh position={[0.55, 1.05, 0]} castShadow>
+          <boxGeometry args={[1.1, 2.0, 0.08]} />
+          {mat("#3d2814", 0.85)}
+        </mesh>
+      </group>
+      <group position={[w * 0.22, 0, 0.05]} rotation={[0, -gateAngle, 0]}>
+        <mesh position={[-0.55, 1.05, 0]} castShadow>
+          <boxGeometry args={[1.1, 2.0, 0.08]} />
+          {mat("#3d2814", 0.85)}
+        </mesh>
+      </group>
+      {!open && (
+        <mesh position={[0, 1.6, 0.4]}>
+          <boxGeometry args={[1.4, 0.35, 0.06]} />
+          {mat("#8a3030", 0.7)}
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+function ParkingLotMesh({ def, w, d }: MeshProps) {
+  const guestCount = useGameStore((s) => s.stats.guestCount);
+  const cars = Math.min(14, Math.max(2, Math.round(guestCount / 8)));
+  const stallsX = 6;
+  const stallsZ = 2;
+  const carColors = ["#c45c48", "#3d6a9a", "#d9c56a", "#4a4a52", "#6a8f5a", "#8a5a3a"];
+  return (
+    <group>
+      {/* Asphalt pad */}
+      <mesh position={[0, 0.03, 0]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[w * 0.98, d * 0.98]} />
+        {mat(def.color, 0.95)}
+      </mesh>
+      {/* Lane stripe */}
+      <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.18, d * 0.85]} />
+        {mat("#d9c56a", 0.7)}
+      </mesh>
+      {/* Stall lines */}
+      {Array.from({ length: stallsX + 1 }, (_, i) => {
+        const x = -w * 0.42 + (i / stallsX) * w * 0.84;
+        return (
+          <mesh key={`sx-${i}`} position={[x, 0.045, -d * 0.22]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[0.06, d * 0.32]} />
+            {mat("#e8e4d8", 0.6)}
+          </mesh>
+        );
+      })}
+      {Array.from({ length: stallsX + 1 }, (_, i) => {
+        const x = -w * 0.42 + (i / stallsX) * w * 0.84;
+        return (
+          <mesh key={`sz-${i}`} position={[x, 0.045, d * 0.22]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[0.06, d * 0.32]} />
+            {mat("#e8e4d8", 0.6)}
+          </mesh>
+        );
+      })}
+      {/* Parked cars (fill with daytime crowd) */}
+      {Array.from({ length: cars }, (_, i) => {
+        const col = i % stallsX;
+        const row = Math.floor(i / stallsX) % stallsZ;
+        const x = -w * 0.35 + (col / Math.max(1, stallsX - 1)) * w * 0.7;
+        const z = row === 0 ? -d * 0.22 : d * 0.22;
+        return (
+          <group key={i} position={[x, 0.28, z]}>
+            <mesh castShadow>
+              <boxGeometry args={[0.9, 0.35, 0.45]} />
+              {mat(carColors[i % carColors.length]!, 0.55, 0.25)}
+            </mesh>
+            <mesh position={[0, 0.22, 0]} castShadow>
+              <boxGeometry args={[0.55, 0.28, 0.4]} />
+              {mat("#9ec4d8", 0.25, 0.35)}
+            </mesh>
+          </group>
+        );
+      })}
+      {/* Ticket / attendant booth */}
+      <mesh position={[w * 0.38, 0.55, -d * 0.35]} castShadow>
+        <boxGeometry args={[0.7, 1.1, 0.7]} />
+        {mat("#6a7a4a", 0.85)}
       </mesh>
     </group>
   );
@@ -721,6 +810,8 @@ function BuildingMesh({ def, w, d }: MeshProps) {
       return <ViewingGalleryMesh def={def} w={w} d={d} />;
     case "entrance-arch":
       return <EntranceArchMesh def={def} w={w} d={d} />;
+    case "parking-lot":
+      return <ParkingLotMesh def={def} w={w} d={d} />;
     case "keeper-hut":
       return <KeeperHutMesh def={def} w={w} d={d} />;
     case "vet-clinic":
