@@ -61,7 +61,10 @@ export default function AnimalPanel({ id }: { id: string }) {
 
   const species = getSpecies(animal.speciesId);
   const years = (animal.age / 52).toFixed(1);
+  const lifespanYears = (animal.lifespan / 52).toFixed(0);
   const focused = focusAnimalId === id;
+  const starving = animal.hunger <= 20;
+  const dying = animal.health <= 25;
 
   return (
     <div className="animal-panel">
@@ -80,6 +83,16 @@ export default function AnimalPanel({ id }: { id: string }) {
         )}
       </div>
 
+      {(starving || dying || animal.sick) && (
+        <p className="inspector__note" style={{ color: "#e0655a" }}>
+          {dying
+            ? "Critical — health is failing. Feed them and call a vet."
+            : starving
+              ? "Starving — hire zookeepers or this animal will die."
+              : "Sick — a veterinarian can restore their health."}
+        </p>
+      )}
+
       <div className="factors">
         {welfare.factors.map((f) => (
           <FactorBar key={f.key} label={f.label} value={f.value} />
@@ -93,7 +106,9 @@ export default function AnimalPanel({ id }: { id: string }) {
         </div>
         <div>
           <dt>Age</dt>
-          <dd>{years} yrs</dd>
+          <dd>
+            {years} / ~{lifespanYears} yrs
+          </dd>
         </div>
         {species && (
           <div>

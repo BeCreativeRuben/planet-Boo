@@ -22,21 +22,28 @@ const ICON: Record<NotificationKind, string> = {
 
 export default function Notifications() {
   // Subscribe to the slices the derivation depends on so the toasts refresh
-  // whenever welfare, finances or the rating change (deriveNotifications reads
-  // the live store; these subscriptions drive the re-render + memo below).
+  // whenever welfare, finances, deaths or staffing change.
   const animals = useGameStore((s) => s.animals);
   const finances = useGameStore((s) => s.finances);
   const stats = useGameStore((s) => s.stats);
+  const deathNotices = useGameStore((s) => s.deathNotices);
+  const staff = useGameStore((s) => s.staff);
+  const dismissDeathNotice = useGameStore((s) => s.dismissDeathNotice);
 
   const dismissed = useUIStore((s) => s.dismissed);
   const dismiss = useUIStore((s) => s.dismissNotification);
 
   const items = useMemo(
     () => deriveNotifications().filter((n) => !dismissed.includes(n.id)),
-    [animals, finances, stats, dismissed],
+    [animals, finances, stats, deathNotices, staff, dismissed],
   );
 
   if (items.length === 0) return null;
+
+  const onDismiss = (id: string) => {
+    dismiss(id);
+    if (id.startsWith("death-")) dismissDeathNotice(id);
+  };
 
   return (
     <div className="notifs" role="log" aria-live="polite">
@@ -53,7 +60,7 @@ export default function Notifications() {
             type="button"
             className="notif__close"
             aria-label="Dismiss"
-            onClick={() => dismiss(n.id)}
+            onClick={() => onDismiss(n.id)}
           >
             ×
           </button>

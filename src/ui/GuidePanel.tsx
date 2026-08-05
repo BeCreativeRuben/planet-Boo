@@ -147,12 +147,13 @@ const CONTENT: Record<SectionId, ReactNode> = {
       </p>
       <ul className="guide__list">
         <li>
-          <strong>Hunger</strong> — keepers feed animals. No keepers → hunger collapses →
-          welfare tanks → guests stop coming.
+          <strong>Hunger</strong> — zookeepers feed animals automatically. No keepers
+          → hunger collapses → health fails → the animal dies. A Keeper Hut near an
+          enclosure speeds feeding.
         </li>
         <li>
-          <strong>Health</strong> — hire a vet before sickness spreads. Low health animals
-          need attention now, not tomorrow.
+          <strong>Health</strong> — starvation and illness drain health. Hire a vet
+          (and build a Vet Clinic) before it hits zero — death is permanent.
         </li>
         <li>
           <strong>Social</strong> — check the species card. Lions want a pride; a lonely
