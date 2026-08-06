@@ -92,6 +92,7 @@ function useEscapeDismiss() {
           tool: "none",
           selectedDefId: undefined,
           selectedSpeciesId: undefined,
+          selectedOfferId: undefined,
         });
       } else if (action === "selection") {
         game.selectEntity(null);
@@ -359,6 +360,7 @@ function Toolbar() {
       tool: "none",
       selectedDefId: undefined,
       selectedSpeciesId: undefined,
+      selectedOfferId: undefined,
     });
   };
 
@@ -370,6 +372,7 @@ function Toolbar() {
       tool: next,
       selectedDefId: undefined,
       selectedSpeciesId: undefined,
+      selectedOfferId: undefined,
     });
   };
 

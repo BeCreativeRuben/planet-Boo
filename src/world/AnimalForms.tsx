@@ -88,42 +88,73 @@ function Ears({
 export interface FormProps {
   color: string;
   s: number;
+  sex?: "male" | "female";
+  ageRatio?: number;
+  healthRatio?: number;
+  rarity?: import("../game/types").AnimalRarity;
+  variantSeed?: number;
 }
 
-export function AnimalForm({ speciesId, color, s }: FormProps & { speciesId: string }) {
+function tintColor(hex: string, seed = 0.5, mul = 1): string {
+  const jitter = 0.88 + seed * 0.18;
+  return shade(hex, mul * jitter);
+}
+
+export function AnimalForm({
+  speciesId,
+  color,
+  s,
+  sex,
+  ageRatio = 0.35,
+  healthRatio = 1,
+  rarity = "common",
+  variantSeed = 0.5,
+}: FormProps & { speciesId: string }) {
+  const bodyColor = tintColor(color, variantSeed);
+  const juvenile = ageRatio < 0.18;
+  const scale = s * (juvenile ? 0.72 : 1) * (healthRatio < 0.45 ? 0.94 : 1);
+  const props: FormProps = {
+    color: bodyColor,
+    s: scale,
+    sex,
+    ageRatio,
+    healthRatio,
+    rarity,
+    variantSeed,
+  };
   switch (speciesId) {
     case "elephant":
-      return <Elephant color={color} s={s} />;
+      return <Elephant {...props} />;
     case "giraffe":
-      return <Giraffe color={color} s={s} />;
+      return <Giraffe {...props} />;
     case "flamingo":
-      return <Flamingo color={color} s={s} />;
+      return <Flamingo {...props} />;
     case "penguin":
-      return <Penguin color={color} s={s} />;
+      return <Penguin {...props} />;
     case "hippo":
-      return <Hippo color={color} s={s} />;
+      return <Hippo {...props} />;
     case "lion":
-      return <Lion color={color} s={s} />;
+      return <Lion {...props} />;
     case "tiger":
     case "snow-leopard":
-      return <BigCat color={color} s={s} striped={speciesId === "tiger"} />;
+      return <BigCat {...props} striped={speciesId === "tiger"} />;
     case "zebra":
-      return <Zebra color={color} s={s} />;
+      return <Zebra {...props} />;
     case "camel":
-      return <Camel color={color} s={s} />;
+      return <Camel {...props} />;
     case "capuchin":
     case "red-panda":
-      return <SmallClimber color={color} s={s} bushy={speciesId === "red-panda"} />;
+      return <SmallClimber {...props} bushy={speciesId === "red-panda"} />;
     case "giant-panda":
-      return <Panda color={color} s={s} />;
+      return <Panda {...props} />;
     case "polar-bear":
-      return <Bear color={color} s={s} />;
+      return <Bear {...props} />;
     case "gray-wolf":
-      return <Wolf color={color} s={s} />;
+      return <Wolf {...props} />;
     case "meerkat":
-      return <Meerkat color={color} s={s} />;
+      return <Meerkat {...props} />;
     default:
-      return <GenericQuad color={color} s={s} />;
+      return <GenericQuad {...props} />;
   }
 }
 
@@ -367,10 +398,11 @@ function Hippo({ color, s }: FormProps) {
   );
 }
 
-function Lion({ color, s }: FormProps) {
+function Lion({ color, s, sex = "male" }: FormProps) {
   const dark = shade(color, 0.72);
   const mane = shade(color, 0.55);
   const legH = 0.5 * s;
+  const showMane = sex !== "female";
   return (
     <group>
       <mesh position={[0, legH + 0.38 * s, 0]} scale={[1.15 * s, 0.45 * s, 0.5 * s]} castShadow>
@@ -381,16 +413,17 @@ function Lion({ color, s }: FormProps) {
         <sphereGeometry args={[0.32 * s, 10, 8]} />
         <Mat color={color} />
       </mesh>
-      {/* mane */}
-      <mesh position={[0.65 * s, legH + 0.55 * s, 0]} castShadow>
-        <sphereGeometry args={[0.42 * s, 8, 6]} />
-        <Mat color={mane} />
-      </mesh>
+      {showMane && (
+        <mesh position={[0.65 * s, legH + 0.55 * s, 0]} castShadow>
+          <sphereGeometry args={[0.42 * s, 8, 6]} />
+          <Mat color={mane} />
+        </mesh>
+      )}
       <mesh position={[1.0 * s, legH + 0.45 * s, 0]} castShadow>
         <sphereGeometry args={[0.12 * s, 7, 6]} />
         <Mat color={dark} />
       </mesh>
-      <Ears y={legH + 0.8 * s} z={0.12 * s} color={mane} size={0.1 * s} />
+      <Ears y={legH + 0.8 * s} z={0.12 * s} color={showMane ? mane : dark} size={0.1 * s} />
       <QuadLegs y={legH / 2} spreadX={0.35 * s} spreadZ={0.22 * s} h={legH} r={0.1 * s} color={dark} />
       <mesh position={[-0.75 * s, legH + 0.4 * s, 0]} rotation={[0.2, 0, 0.4]} castShadow>
         <cylinderGeometry args={[0.05 * s, 0.09 * s, 0.65 * s, 5]} />

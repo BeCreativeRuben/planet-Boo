@@ -8,6 +8,7 @@
 
 import type { Animal, WelfareResult } from "../game/types";
 import { SPECIES_BY_ID } from "../game/species";
+import { METHOD_META } from "../game/acquisition";
 import { computeWelfare, worstFactor } from "../game/welfare";
 import { isBankrupt } from "../game/economy";
 import type { GameNotification } from "./uiStore";
@@ -73,6 +74,19 @@ export function deriveNotifications(): GameNotification[] {
       kind: "warning",
       title: "No zookeepers on payroll",
       message: "Animals will starve without keepers. Hire one from the Staff tab.",
+    });
+  }
+
+  for (const offer of s.animalOffers) {
+    if (offer.createdDay !== s.day) continue;
+    const def = SPECIES_BY_ID[offer.speciesId];
+    const meta = METHOD_META[offer.method];
+    const urgent = offer.method === "spotted" || offer.method === "rescue_wild";
+    out.push({
+      id: `offer-${offer.id}`,
+      kind: urgent ? "warning" : "info",
+      title: `${meta.icon} ${meta.label}: ${def?.name ?? "animal"}`,
+      message: `${offer.label} — open Animals tab before it expires.`,
     });
   }
 

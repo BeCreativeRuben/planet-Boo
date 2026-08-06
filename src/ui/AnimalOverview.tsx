@@ -8,12 +8,13 @@
 import { useMemo, useState } from "react";
 
 import { getSpecies } from "../game/species";
+import { METHOD_META, RARITY_META, effectiveRarity } from "../game/acquisition";
 import { welfareLabel } from "../game/welfare";
 import { useGameStore } from "../store/gameStore";
 import { useUIStore } from "../store/uiStore";
 import { toneFor } from "./AnimalPanel";
 
-type SortKey = "name" | "species" | "habitat" | "welfare" | "hunger" | "health";
+type SortKey = "name" | "species" | "habitat" | "source" | "rarity" | "welfare" | "hunger" | "health";
 
 interface Row {
   id: string;
@@ -22,6 +23,8 @@ interface Row {
   speciesName: string;
   icon: string;
   habitatName: string;
+  source: string;
+  rarity: string;
   welfare: number;
   hunger: number;
   health: number;
@@ -44,6 +47,7 @@ export default function AnimalOverview() {
     const list: Row[] = Object.values(animals).map((a) => {
       const sp = getSpecies(a.speciesId);
       const habitat = a.habitatId ? habitats[a.habitatId] : undefined;
+      const rarity = sp ? effectiveRarity(sp, a.rarity) : "common";
       return {
         id: a.id,
         name: a.name,
@@ -51,6 +55,8 @@ export default function AnimalOverview() {
         speciesName: sp?.name ?? a.speciesId,
         icon: sp?.icon ?? "🐾",
         habitatName: habitat?.name ?? "Unassigned",
+        source: METHOD_META[a.acquisitionMethod].label,
+        rarity: RARITY_META[rarity].label,
         welfare: Math.round(a.welfare),
         hunger: Math.round(a.hunger),
         health: Math.round(a.health),
@@ -76,6 +82,10 @@ export default function AnimalOverview() {
             return r.speciesName;
           case "habitat":
             return r.habitatName;
+          case "source":
+            return r.source;
+          case "rarity":
+            return r.rarity;
           default:
             return r[sort];
         }
@@ -163,6 +173,18 @@ export default function AnimalOverview() {
                     onClick={() => toggleSort("habitat")}
                   />
                   <Th
+                    label="Source"
+                    active={sort === "source"}
+                    asc={asc}
+                    onClick={() => toggleSort("source")}
+                  />
+                  <Th
+                    label="Rarity"
+                    active={sort === "rarity"}
+                    asc={asc}
+                    onClick={() => toggleSort("rarity")}
+                  />
+                  <Th
                     label="Welfare"
                     active={sort === "welfare"}
                     asc={asc}
@@ -200,6 +222,8 @@ export default function AnimalOverview() {
                       </td>
                       <td>{r.speciesName}</td>
                       <td>{r.habitatName}</td>
+                      <td>{r.source}</td>
+                      <td>{r.rarity}</td>
                       <td style={{ color: toneFor(r.welfare) }}>{r.welfare}%</td>
                       <td style={{ color: toneFor(r.hunger) }}>{r.hunger}%</td>
                       <td style={{ color: toneFor(r.health) }}>{r.health}%</td>
