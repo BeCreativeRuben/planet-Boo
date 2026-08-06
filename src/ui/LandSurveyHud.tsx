@@ -28,7 +28,8 @@ export default function LandSurveyHud() {
           <h2>Survey park land</h2>
           <p>
             Top-down map of the whole park. Amber plots are for sale — south is the
-            entrance and parking. Pan and zoom; rotation is locked.
+            entrance and parking. Pan and zoom; rotation is locked. Press{" "}
+            <kbd className="land-survey__kbd">Esc</kbd> or Done when finished.
           </p>
         </div>
         <div className="land-survey__stats">

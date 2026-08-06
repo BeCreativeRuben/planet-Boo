@@ -11,7 +11,7 @@
  * (open tab, finance modal) comes from the UI store.
  */
 
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { getSpecies } from "../game/species";
 import { getBuilding } from "../game/buildings";
 import { getStaffRole } from "../game/staffTypes";
@@ -36,6 +36,7 @@ import {
   phaseLabel,
 } from "../game/dayCycle";
 import type { BuildTool } from "../game/types";
+import { escapeDismissAction } from "../game/escapeDismiss";
 import { useGameStore } from "../store/gameStore";
 import { useUIStore, type BuildTab } from "../store/uiStore";
 import { parkAppeal, welfareForAnimal } from "../store/selectors";
@@ -48,6 +49,7 @@ import LandSurveyHud from "./LandSurveyHud";
 import GuidePanel from "./GuidePanel";
 import AnimalOverview from "./AnimalOverview";
 import JobsOverview from "./JobsOverview";
+import { InspectorFrame } from "./InspectorFrame";
 
 const money = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
@@ -66,18 +68,24 @@ function useEscapeDismiss() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       const ui = useUIStore.getState();
-      if (ui.landSelectOpen) {
-        ui.closeLandSelect();
-        e.preventDefault();
-        return;
-      }
-      if (ui.financeOpen || ui.guideOpen || ui.animalsOpen || ui.jobsOpen) {
-        ui.closeOverlays();
-        e.preventDefault();
-        return;
-      }
       const game = useGameStore.getState();
-      if (ui.activeTab || game.build.active || game.build.tool !== "none") {
+      const action = escapeDismissAction({
+        landSelectOpen: ui.landSelectOpen,
+        financeOpen: ui.financeOpen,
+        guideOpen: ui.guideOpen,
+        animalsOpen: ui.animalsOpen,
+        jobsOpen: ui.jobsOpen,
+        activeTab: ui.activeTab,
+        buildActive: game.build.active,
+        buildTool: game.build.tool,
+        hasSelection: !!game.selection,
+        hasFocusAnimal: !!game.focusAnimalId,
+      });
+      if (action === "none") return;
+
+      if (action === "land-survey") ui.closeLandSelect();
+      else if (action === "overlays") ui.closeOverlays();
+      else if (action === "build") {
         ui.setActiveTab(null);
         game.setBuildMode({
           active: false,
@@ -85,14 +93,11 @@ function useEscapeDismiss() {
           selectedDefId: undefined,
           selectedSpeciesId: undefined,
         });
-        e.preventDefault();
-        return;
-      }
-      if (game.selection || game.focusAnimalId) {
+      } else if (action === "selection") {
         game.selectEntity(null);
         game.focusAnimal(null);
-        e.preventDefault();
       }
+      e.preventDefault();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -110,9 +115,8 @@ export default function HUD() {
       {!landSelectOpen && <PhaseBanner />}
 
       {!landSelectOpen && (
-        <div className="hud__mid">
-          {/* Hide inspector while a build tab is open so the catalog isn't covered. */}
-          {!activeTab && <Inspector />}
+        <div className={`hud__mid${activeTab ? " hud__mid--build-open" : ""}`}>
+          <Inspector compact={!!activeTab} />
           <Notifications />
         </div>
       )}
@@ -402,32 +406,38 @@ function Toolbar() {
 /*  Left inspector                                                            */
 /* -------------------------------------------------------------------------- */
 
-function Inspector() {
+function Inspector({ compact }: { compact?: boolean }) {
   const selection = useGameStore((s) => s.selection);
   if (!selection) return null;
 
+  let panel: ReactNode = null;
   switch (selection.kind) {
     case "animal":
-      return <AnimalInspector id={selection.id} />;
+      panel = <AnimalInspector id={selection.id} compact={compact} />;
+      break;
     case "habitat":
-      return <HabitatInspector id={selection.id} />;
+      panel = <HabitatInspector id={selection.id} compact={compact} />;
+      break;
     case "building":
-      return <BuildingInspector id={selection.id} />;
+      panel = <BuildingInspector id={selection.id} compact={compact} />;
+      break;
     case "staff":
-      return <StaffInspector id={selection.id} />;
+      panel = <StaffInspector id={selection.id} compact={compact} />;
+      break;
     default:
       return null;
   }
+  return panel;
 }
 
-function AnimalInspector({ id }: { id: string }) {
+function AnimalInspector({ id, compact }: { id: string; compact?: boolean }) {
   const a = useGameStore((s) => s.animals[id]);
   const w = welfareForAnimal(id);
   if (!a || !w) return null;
   const species = getSpecies(a.speciesId);
 
   return (
-    <div className="inspector glass">
+    <InspectorFrame compact={compact}>
       <header className="inspector__head">
         <span className="inspector__icon" aria-hidden>
           {species?.icon ?? "🐾"}
@@ -441,17 +451,17 @@ function AnimalInspector({ id }: { id: string }) {
         </span>
       </header>
       <AnimalPanel id={id} />
-    </div>
+    </InspectorFrame>
   );
 }
 
-function HabitatInspector({ id }: { id: string }) {
+function HabitatInspector({ id, compact }: { id: string; compact?: boolean }) {
   const h = useGameStore((s) => s.habitats[id]);
   const setHabitatBiome = useGameStore((s) => s.setHabitatBiome);
   if (!h) return null;
   const species = h.speciesId ? getSpecies(h.speciesId) : undefined;
   return (
-    <div className="inspector glass">
+    <InspectorFrame compact={compact}>
       <header className="inspector__head">
         <span className="inspector__icon" aria-hidden>
           {species?.icon ?? "🏞️"}
@@ -492,11 +502,11 @@ function HabitatInspector({ id }: { id: string }) {
           Enrichment: {h.enrichmentProvided.join(", ")}
         </p>
       )}
-    </div>
+    </InspectorFrame>
   );
 }
 
-function BuildingInspector({ id }: { id: string }) {
+function BuildingInspector({ id, compact }: { id: string; compact?: boolean }) {
   const b = useGameStore((s) => s.buildings[id]);
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const guests = useGameStore((s) => s.guests);
@@ -533,7 +543,7 @@ function BuildingInspector({ id }: { id: string }) {
   const customersLife = Math.round(b.customersLifetime ?? 0);
 
   return (
-    <div className="inspector glass">
+    <InspectorFrame compact={compact}>
       <header className="inspector__head">
         <span className="inspector__icon" aria-hidden>
           {def.icon ?? "🏗️"}
@@ -694,11 +704,11 @@ function BuildingInspector({ id }: { id: string }) {
           Demolish
         </button>
       )}
-    </div>
+    </InspectorFrame>
   );
 }
 
-function StaffInspector({ id }: { id: string }) {
+function StaffInspector({ id, compact }: { id: string; compact?: boolean }) {
   const m = useGameStore((s) => s.staff[id]);
   const habitats = useGameStore((s) => s.habitats);
   if (!m) return null;
@@ -707,7 +717,7 @@ function StaffInspector({ id }: { id: string }) {
     .map((hid) => habitats[hid]?.name)
     .filter(Boolean) as string[];
   return (
-    <div className="inspector glass">
+    <InspectorFrame compact={compact}>
       <header className="inspector__head">
         <span className="inspector__icon" aria-hidden>
           {def.icon}
@@ -738,6 +748,6 @@ function StaffInspector({ id }: { id: string }) {
           Assigned: {assignmentNames.join(", ")}
         </p>
       )}
-    </div>
+    </InspectorFrame>
   );
 }

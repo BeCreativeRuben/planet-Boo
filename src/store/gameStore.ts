@@ -219,8 +219,6 @@ export interface ZooStore extends GameState {
    * isn't buyable or cash is short.
    */
   buyParcel: (key: string) => boolean;
-  /** @deprecated Prefer buyParcel — buys the cheapest adjacent parcel. */
-  buyLand: () => boolean;
   /** Change an existing habitat's biome (and matching climate). */
   setHabitatBiome: (habitatId: string, biome: Biome) => void;
   /** Clear a death toast after the player dismisses it. */
@@ -997,13 +995,6 @@ export const useGameStore = create<ZooStore>((set, get) => ({
       finances: applyPurchase(s.finances, offer.cost),
     });
     return true;
-  },
-
-  buyLand: () => {
-    const s = get();
-    const offers = listBuyableParcels(s.ownedParcels);
-    if (!offers.length) return false;
-    return get().buyParcel(offers[0]!.key);
   },
 
   /* ---- selection & finance ---- */

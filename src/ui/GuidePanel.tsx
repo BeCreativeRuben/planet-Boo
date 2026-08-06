@@ -89,11 +89,16 @@ const CONTENT: Record<SectionId, ReactNode> = {
           Open <strong>Finances</strong> (click Balance) and glance at today&apos;s costs
           before buying a second elephant.
         </li>
+        <li>
+          Press <strong>Esc</strong> to step back: land survey → modals → build tabs →
+          clear the selected animal or building.
+        </li>
       </ol>
       <p className="guide__tip">
         Need more room? Open Finances (click Balance), then <strong>Survey land on
-        map</strong> for a top-down view of the whole park. Amber plots are for sale —
-        south sits by parking and the entrance.
+        map</strong> for a top-down view — land is only bought there, not from the
+        Finances preview grid. Amber plots are for sale; south sits by parking and
+        the entrance.
       </p>
     </>
   ),
@@ -135,6 +140,10 @@ const CONTENT: Record<SectionId, ReactNode> = {
         <li>
           <strong>Construction</strong> — one-off buys (animals, buildings, hires,
           land). These hit Balance and Net today immediately.
+        </li>
+        <li>
+          <strong>Land</strong> — Finances shows a preview only. Use <strong>Survey land
+          on map</strong> for the top-down view where you click amber parcels to buy.
         </li>
       </ul>
       <p className="guide__tip">
