@@ -164,9 +164,7 @@ function PhaseBanner() {
       </div>
       <div className="phase-banner__copy">
         <strong className="phase-banner__title">Night maintenance</strong>
-        <p className="phase-banner__hint">
-          Gates closed — staff work faster. Build freely, or skip ahead to dawn.
-        </p>
+        <p className="phase-banner__hint">Staff work faster — or skip to dawn.</p>
       </div>
       <div className="phase-banner__actions">
         {[2, 3].map((sp) => (
