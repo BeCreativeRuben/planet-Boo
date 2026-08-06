@@ -27,6 +27,7 @@ import {
 import { isOwnedCell, ownedExtent } from "../game/parcels";
 import { getBuilding } from "../game/buildings";
 import { getSpecies } from "../game/species";
+import { buyPrice, canAcquireOffer, canAcquireSpecies } from "../game/acquisition";
 import type { Habitat, Vec2 } from "../game/types";
 
 function cellFromPoint(point: THREE.Vector3, ownedParcels: readonly string[]): Vec2 | null {
@@ -299,16 +300,7 @@ function habitatAtWorld(
   return null;
 }
 
-function canAdoptInto(speciesId: string, habitat: Habitat, cash: number): boolean {
-  const def = getSpecies(speciesId);
-  if (!def) return false;
-  if (cash < def.cost) return false;
-  if (habitat.biome !== def.biome) return false;
-  if (habitat.speciesId && habitat.speciesId !== def.id) return false;
-  return true;
-}
-
-/** Click inside a habitat to buy & place the selected species. */
+/** Click inside a habitat to place the selected species or timed offer. */
 function AnimalSnapPlane({
   ownedParcels,
   extent,
@@ -320,15 +312,27 @@ function AnimalSnapPlane({
 
   const syncHover = (point: THREE.Vector3 | null) => {
     const store = useGameStore.getState();
+    const offerId = store.build.selectedOfferId;
     const speciesId = store.build.selectedSpeciesId;
-    if (!point || !speciesId) {
+    if (!point || (!speciesId && !offerId)) {
       store.setHoverCell(null);
       store.setBuildMode({ valid: false });
       return;
     }
     const cell = cellFromPoint(point, ownedParcels);
     const habitat = habitatAtWorld(store.habitats, point.x, point.z);
-    const valid = !!habitat && canAdoptInto(speciesId, habitat, store.finances.cash);
+    let valid = false;
+    if (habitat) {
+      if (offerId) {
+        const offer = store.animalOffers.find((o) => o.id === offerId);
+        valid = !!offer && canAcquireOffer(offer, habitat, store.finances);
+      } else if (speciesId) {
+        const def = getSpecies(speciesId);
+        valid =
+          !!def &&
+          canAcquireSpecies(speciesId, habitat, store.finances, buyPrice(def));
+      }
+    }
     store.setHoverCell(cell);
     store.setBuildMode({ valid });
   };
@@ -342,18 +346,36 @@ function AnimalSnapPlane({
     if (e.button !== 0) return;
     e.stopPropagation();
     const store = useGameStore.getState();
+    const offerId = store.build.selectedOfferId;
     const speciesId = store.build.selectedSpeciesId;
-    if (!speciesId) return;
+    if (!speciesId && !offerId) return;
     const habitat = habitatAtWorld(store.habitats, e.point.x, e.point.z);
-    if (!habitat || !canAdoptInto(speciesId, habitat, store.finances.cash)) {
+    if (!habitat) {
       syncHover(e.point);
       return;
     }
-    if (controls && "enabled" in controls) controls.enabled = false;
-    store.addAnimalToHabitat(speciesId, habitat.id, { x: e.point.x, z: e.point.z });
-    store.selectEntity({ kind: "habitat", id: habitat.id });
-    // Refresh validity after cash spend.
-    syncHover(e.point);
+    const at = { x: e.point.x, z: e.point.z };
+    let ok = false;
+    if (offerId) {
+      const offer = store.animalOffers.find((o) => o.id === offerId);
+      ok = !!offer && canAcquireOffer(offer, habitat, store.finances);
+      if (ok) {
+        if (controls && "enabled" in controls) controls.enabled = false;
+        store.acquireFromOffer(offerId, habitat.id, at);
+        store.selectEntity({ kind: "habitat", id: habitat.id });
+      }
+    } else if (speciesId) {
+      const def = getSpecies(speciesId);
+      ok =
+        !!def && canAcquireSpecies(speciesId, habitat, store.finances, buyPrice(def));
+      if (ok) {
+        if (controls && "enabled" in controls) controls.enabled = false;
+        store.addAnimalToHabitat(speciesId, habitat.id, at);
+        store.selectEntity({ kind: "habitat", id: habitat.id });
+      }
+    }
+    if (!ok) syncHover(e.point);
+    else syncHover(e.point);
   };
 
   const onPointerUp = () => {

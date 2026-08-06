@@ -48,6 +48,34 @@ export type ConservationStatus =
   | "CR" // Critically Endangered
   | "EW"; // Extinct in the Wild
 
+/** Collection / guest-interest tier (separate from IUCN status). */
+export type AnimalRarity = "common" | "uncommon" | "rare" | "legendary";
+
+/** How an animal joined the park. */
+export type AcquisitionMethod =
+  | "buy"
+  | "adopt"
+  | "rescue_wild"
+  | "spotted"
+  | "deprecated_zoo"
+  | "shelter"
+  | "sanctuary_transfer";
+
+export interface AcquisitionOffer {
+  id: string;
+  speciesId: string;
+  method: AcquisitionMethod;
+  label: string;
+  cashCost: number;
+  conservationCost?: number;
+  expiresDay: number;
+  createdDay: number;
+  startingHealth?: number;
+  startingHunger?: number;
+  startingWelfare?: number;
+  rarityOverride?: AnimalRarity;
+}
+
 /** The kinds of enrichment an animal can need / a habitat can provide. */
 export type EnrichmentType =
   | "ball"
@@ -101,6 +129,8 @@ export interface SpeciesDef {
   foodCostPerDay: number;
   description: string;
   conservationStatus: ConservationStatus;
+  /** Optional gameplay rarity; derived from status/cost when omitted. */
+  rarity?: AnimalRarity;
 }
 
 export interface BuildingDef {
@@ -160,6 +190,10 @@ export interface Animal {
   sick: boolean;
   /** Days until the animal can breed again. */
   breedCooldown: number;
+  acquisitionMethod: AcquisitionMethod;
+  /** Per-individual visual + appeal variation (0..1). */
+  variantSeed: number;
+  rarity?: AnimalRarity;
 }
 
 export interface Habitat {
@@ -299,6 +333,8 @@ export interface BuildMode {
   tool: BuildTool;
   selectedDefId?: string;
   selectedSpeciesId?: string;
+  /** Active timed acquisition offer (Animals tab). */
+  selectedOfferId?: string;
   /** Quarter turns (0..3). */
   rotation: number;
   gridSize: number;
@@ -352,6 +388,8 @@ export interface GameState {
   litter: Record<string, Litter>;
 
   unlockedSpecies: string[];
+  /** Timed rescue / shelter / spotted intakes. */
+  animalOffers: AcquisitionOffer[];
 
   build: BuildMode;
   stats: ParkStats;

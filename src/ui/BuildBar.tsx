@@ -2,13 +2,19 @@
  * Wildhaven — contextual build strip.
  *
  * Habitat tab: pick a biome, claim closed enclosures, place fences/gates.
- * Biome chips update the selected habitat immediately, and set the biome used
- * when a new enclosure is claimed.
+ * Animals tab: timed rescue/shelter offers plus standard catalog purchases.
  */
 
 import type { Biome } from "../game/types";
 import type { BuildTab } from "../store/uiStore";
 
+import {
+  buyPrice,
+  effectiveRarity,
+  METHOD_META,
+  RARITY_META,
+  speciesRarity,
+} from "../game/acquisition";
 import { buildingsByCategory } from "../game/buildings";
 import { getSpecies } from "../game/species";
 import { STAFF_ROLES } from "../game/staffTypes";
@@ -41,14 +47,17 @@ const TAB_TITLE: Record<BuildTab, string> = {
   scenery: "Scenery & enrichment",
   guest: "Guest amenities",
   staff: "Staff facilities & hiring",
-  animals: "Adopt an animal",
+  animals: "Animals & acquisitions",
 };
 
 export default function BuildBar({ tab }: { tab: BuildTab }) {
   const build = useGameStore((s) => s.build);
   const cash = useGameStore((s) => s.finances.cash);
+  const conservation = useGameStore((s) => s.finances.conservationPoints);
+  const day = useGameStore((s) => s.day);
   const buildBiome = useGameStore((s) => s.buildBiome);
   const unlockedSpecies = useGameStore((s) => s.unlockedSpecies);
+  const animalOffers = useGameStore((s) => s.animalOffers);
   const selection = useGameStore((s) => s.selection);
   const selectedHabitat = useGameStore((s) =>
     s.selection?.kind === "habitat" ? s.habitats[s.selection.id] : null,
@@ -68,18 +77,21 @@ export default function BuildBar({ tab }: { tab: BuildTab }) {
     }
   };
 
+  const clearAnimalPick = () => ({
+    active: false as const,
+    tool: "none" as const,
+    selectedDefId: undefined,
+    selectedSpeciesId: undefined,
+    selectedOfferId: undefined,
+  });
+
   const selectBuilding = (defId: string) => {
     const armed =
       build.tool === "place" || build.tool === "fence" || build.tool === "gate"
         ? build.selectedDefId === defId
         : false;
     if (armed) {
-      setBuildMode({
-        active: false,
-        tool: "none",
-        selectedDefId: undefined,
-        selectedSpeciesId: undefined,
-      });
+      setBuildMode(clearAnimalPick());
       return;
     }
     const tool =
@@ -89,6 +101,7 @@ export default function BuildBar({ tab }: { tab: BuildTab }) {
       tool,
       selectedDefId: defId,
       selectedSpeciesId: undefined,
+      selectedOfferId: undefined,
     });
   };
 
@@ -96,8 +109,29 @@ export default function BuildBar({ tab }: { tab: BuildTab }) {
     const armed = build.tool === "animal" && build.selectedSpeciesId === speciesId;
     setBuildMode(
       armed
-        ? { active: false, tool: "none", selectedDefId: undefined, selectedSpeciesId: undefined }
-        : { active: true, tool: "animal", selectedSpeciesId: speciesId, selectedDefId: undefined },
+        ? clearAnimalPick()
+        : {
+            active: true,
+            tool: "animal",
+            selectedSpeciesId: speciesId,
+            selectedOfferId: undefined,
+            selectedDefId: undefined,
+          },
+    );
+  };
+
+  const selectOffer = (offerId: string) => {
+    const armed = build.tool === "animal" && build.selectedOfferId === offerId;
+    setBuildMode(
+      armed
+        ? clearAnimalPick()
+        : {
+            active: true,
+            tool: "animal",
+            selectedOfferId: offerId,
+            selectedSpeciesId: undefined,
+            selectedDefId: undefined,
+          },
     );
   };
 
@@ -105,8 +139,14 @@ export default function BuildBar({ tab }: { tab: BuildTab }) {
     const armed = build.tool === "claim";
     setBuildMode(
       armed
-        ? { active: false, tool: "none", selectedDefId: undefined, selectedSpeciesId: undefined }
-        : { active: true, tool: "claim", selectedDefId: undefined, selectedSpeciesId: undefined },
+        ? clearAnimalPick()
+        : {
+            active: true,
+            tool: "claim",
+            selectedDefId: undefined,
+            selectedSpeciesId: undefined,
+            selectedOfferId: undefined,
+          },
     );
   };
 
@@ -149,9 +189,56 @@ export default function BuildBar({ tab }: { tab: BuildTab }) {
       )}
 
       {tab === "animals" && (
-        <p className="buildbar__hint">
-          Select a species, then click a highlighted matching-biome habitat to adopt it.
-        </p>
+        <>
+          <p className="buildbar__hint">
+            Rescue intakes rotate daily — or purchase from the catalog. Select one,
+            then click a matching-biome habitat.
+          </p>
+          {animalOffers.length > 0 && (
+            <>
+              <div className="buildbar__subtitle">Available now</div>
+              <div className="buildbar__strip buildbar__strip--offers">
+                {animalOffers.map((offer) => {
+                  const s = getSpecies(offer.speciesId);
+                  if (!s) return null;
+                  const meta = METHOD_META[offer.method];
+                  const rarity = effectiveRarity(s, offer.rarityOverride);
+                  const armed = build.tool === "animal" && build.selectedOfferId === offer.id;
+                  const poor =
+                    cash < offer.cashCost ||
+                    conservation < (offer.conservationCost ?? 0);
+                  const daysLeft = Math.max(0, offer.expiresDay - day);
+                  return (
+                    <button
+                      key={offer.id}
+                      type="button"
+                      className={`item item--offer${armed ? " item--on" : ""}${poor ? " item--poor" : ""}`}
+                      onClick={() => selectOffer(offer.id)}
+                      title={`${offer.label} · ${meta.hint} · ${daysLeft}d left`}
+                    >
+                      <span className="item__icon" aria-hidden>
+                        {meta.icon}
+                      </span>
+                      <span className="item__name">{s.name}</span>
+                      <span className="item__meta item__meta--method">
+                        {meta.label} · {RARITY_META[rarity].label}
+                      </span>
+                      <span className="item__tag">{offer.label}</span>
+                      <span className="item__cost">
+                        {money(offer.cashCost)}
+                        {(offer.conservationCost ?? 0) > 0
+                          ? ` · ${offer.conservationCost} pts`
+                          : ""}
+                      </span>
+                      <span className="item__expiry">{daysLeft}d</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          <div className="buildbar__subtitle">Catalog — purchase</div>
+        </>
       )}
 
       <div className="buildbar__strip">
@@ -175,21 +262,25 @@ export default function BuildBar({ tab }: { tab: BuildTab }) {
               const s = getSpecies(id);
               if (!s) return null;
               const armed = build.tool === "animal" && build.selectedSpeciesId === id;
-              const poor = cash < s.cost;
+              const price = buyPrice(s);
+              const poor = cash < price;
+              const rarity = speciesRarity(s);
               return (
                 <button
                   key={id}
                   type="button"
                   className={`item${armed ? " item--on" : ""}${poor ? " item--poor" : ""}`}
                   onClick={() => selectSpecies(id)}
-                  title={`${s.description} · Needs ${s.biome} · Click a matching habitat to adopt`}
+                  title={`${s.description} · ${RARITY_META[rarity].label} · Needs ${s.biome}`}
                 >
                   <span className="item__icon" aria-hidden>
                     {s.icon}
                   </span>
                   <span className="item__name">{s.name}</span>
-                  <span className="item__meta">{s.biome}</span>
-                  <span className="item__cost">{money(s.cost)}</span>
+                  <span className="item__meta">
+                    {s.biome} · {RARITY_META[rarity].label}
+                  </span>
+                  <span className="item__cost">{money(price)}</span>
                 </button>
               );
             })

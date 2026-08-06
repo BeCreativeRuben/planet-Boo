@@ -31,6 +31,14 @@ import type {
 } from "../game/types";
 
 import {
+  buyPrice,
+  canAcquireSpecies,
+  createStarterOffers,
+  effectiveRarity,
+  rollDailyOffers,
+  speciesRarity,
+} from "../game/acquisition";
+import {
   applyCarePulse,
   applyDailyCare,
   deathMessage,
@@ -98,6 +106,7 @@ import {
   expandBounds,
   guestWalkable,
   GUEST_FENCE_CLEARANCE,
+  hash01,
 } from "../game/simulation";
 import {
   createStarterParcels,
@@ -213,6 +222,7 @@ export interface ZooStore extends GameState {
   demolish: (instanceId: string) => void;
   createHabitat: (seed: Vec2, opts?: CreateHabitatOpts) => string | null;
   addAnimalToHabitat: (speciesId: string, habitatId: string, at?: Vec2) => void;
+  acquireFromOffer: (offerId: string, habitatId: string, at?: Vec2) => boolean;
   hireStaff: (role: StaffRole) => void;
   /**
    * Buy an adjacent land parcel by key (`"px,pz"`). Returns false if the parcel
@@ -312,12 +322,14 @@ function createInitialState(): GameState & ViewState {
     litter: {},
 
     unlockedSpecies: Object.keys(SPECIES_BY_ID),
+    animalOffers: createStarterOffers(1),
 
     build: {
       active: false,
       tool: "none",
       selectedDefId: undefined,
       selectedSpeciesId: undefined,
+      selectedOfferId: undefined,
       rotation: 0,
       gridSize: 1,
       valid: true,
@@ -352,9 +364,92 @@ function computeAppeal(s: SimSlice): number {
   for (const a of Object.values(s.animals)) {
     const def = SPECIES_BY_ID[a.speciesId];
     if (!def) continue;
-    appeal += def.appeal * (0.4 + (a.welfare / 100) * 0.6) * 0.35;
+    const rarity = effectiveRarity(def, a.rarity);
+    const rarityMult =
+      rarity === "legendary" ? 1.32 : rarity === "rare" ? 1.18 : rarity === "uncommon" ? 1.08 : 1;
+    appeal += def.appeal * rarityMult * (0.4 + (a.welfare / 100) * 0.6) * 0.35;
   }
   return appeal;
+}
+
+function habitatSpawnPosition(habitat: Habitat, at?: Vec2): Vec2 {
+  const cx = (habitat.bounds.min.x + habitat.bounds.max.x) / 2;
+  const cz = (habitat.bounds.min.z + habitat.bounds.max.z) / 2;
+  const pad = 0.6;
+  const clampIn = (v: number, lo: number, hi: number) =>
+    Math.min(hi - pad, Math.max(lo + pad, v));
+  return at
+    ? {
+        x: clampIn(at.x, habitat.bounds.min.x, habitat.bounds.max.x),
+        z: clampIn(at.z, habitat.bounds.min.z, habitat.bounds.max.z),
+      }
+    : { x: cx + (Math.random() - 0.5) * 4, z: cz + (Math.random() - 0.5) * 4 };
+}
+
+function placeAnimalEntity(
+  s: GameState,
+  speciesId: string,
+  habitatId: string,
+  at: Vec2 | undefined,
+  opts: {
+    acquisitionMethod: Animal["acquisitionMethod"];
+    cashCost: number;
+    conservationCost?: number;
+    health?: number;
+    hunger?: number;
+    welfare?: number;
+    rarity?: Animal["rarity"];
+  },
+): GameState | null {
+  const def = SPECIES_BY_ID[speciesId];
+  const habitat = s.habitats[habitatId];
+  if (!def || !habitat) return null;
+  if (!canAcquireSpecies(speciesId, habitat, s.finances, opts.cashCost, opts.conservationCost ?? 0)) {
+    return null;
+  }
+
+  const id = uid("a");
+  const position = habitatSpawnPosition(habitat, at);
+  const animal: Animal = {
+    id,
+    speciesId,
+    name: NAMES[Math.floor(Math.random() * NAMES.length)],
+    habitatId,
+    position,
+    age: spawnAgeForLifespan(lifespanForSpecies(speciesId)),
+    lifespan: lifespanForSpecies(speciesId),
+    sex: Math.random() < 0.5 ? "male" : "female",
+    health: opts.health ?? 95,
+    hunger: opts.hunger ?? 85,
+    welfare: opts.welfare ?? 70,
+    sick: (opts.health ?? 95) < 55,
+    breedCooldown: 0,
+    acquisitionMethod: opts.acquisitionMethod,
+    variantSeed: hash01(id),
+    rarity: opts.rarity ?? speciesRarity(def),
+  };
+
+  const nextHabitat: Habitat = {
+    ...habitat,
+    animalIds: [...habitat.animalIds, id],
+    speciesId: habitat.speciesId ?? speciesId,
+  };
+  const animals = { ...s.animals, [id]: animal };
+  animal.welfare = computeWelfare(animal, nextHabitat, herdSize(nextHabitat, animals, speciesId)).score;
+
+  const purchased = applyPurchase(s.finances, opts.cashCost);
+  return {
+    ...s,
+    animals,
+    habitats: { ...s.habitats, [habitatId]: nextHabitat },
+    finances: {
+      ...purchased,
+      conservationPoints: Math.max(
+        0,
+        purchased.conservationPoints - (opts.conservationCost ?? 0),
+      ),
+    },
+  };
 }
 
 /** World-space centres of every guest path / amenity tile (guest waypoints). */
@@ -749,6 +844,7 @@ export const useGameStore = create<ZooStore>((set, get) => ({
         deathNotices,
         selection: cleared.selection,
         focusAnimalId: cleared.focusAnimalId,
+        animalOffers: rollDailyOffers(s.day + 1, s.animalOffers, rating),
         stats: { guestCount, averageGuestHappiness, averageAnimalWelfare, rating },
       };
     }),
@@ -912,52 +1008,43 @@ export const useGameStore = create<ZooStore>((set, get) => ({
   addAnimalToHabitat: (speciesId, habitatId, at) => {
     const s = get();
     const def = SPECIES_BY_ID[speciesId];
-    const habitat = s.habitats[habitatId];
-    if (!def || !habitat) return;
-    if (s.finances.cash < def.cost) return;
-
-    const id = uid("a");
-    const cx = (habitat.bounds.min.x + habitat.bounds.max.x) / 2;
-    const cz = (habitat.bounds.min.z + habitat.bounds.max.z) / 2;
-    const pad = 0.6;
-    const clampIn = (v: number, lo: number, hi: number) =>
-      Math.min(hi - pad, Math.max(lo + pad, v));
-    const position: Vec2 = at
-      ? {
-          x: clampIn(at.x, habitat.bounds.min.x, habitat.bounds.max.x),
-          z: clampIn(at.z, habitat.bounds.min.z, habitat.bounds.max.z),
-        }
-      : { x: cx + (Math.random() - 0.5) * 4, z: cz + (Math.random() - 0.5) * 4 };
-
-    const animal: Animal = {
-      id,
-      speciesId,
-      name: NAMES[Math.floor(Math.random() * NAMES.length)],
-      habitatId,
-      position,
-      age: spawnAgeForLifespan(lifespanForSpecies(speciesId)),
-      lifespan: lifespanForSpecies(speciesId),
-      sex: Math.random() < 0.5 ? "male" : "female",
-      health: 95,
-      hunger: 85,
-      welfare: 70,
-      sick: false,
-      breedCooldown: 0,
-    };
-
-    const nextHabitat: Habitat = {
-      ...habitat,
-      animalIds: [...habitat.animalIds, id],
-      speciesId: habitat.speciesId ?? speciesId,
-    };
-    const animals = { ...s.animals, [id]: animal };
-    animal.welfare = computeWelfare(animal, nextHabitat, herdSize(nextHabitat, animals, speciesId)).score;
-
-    set({
-      animals,
-      habitats: { ...s.habitats, [habitatId]: nextHabitat },
-      finances: applyPurchase(s.finances, def.cost),
+    if (!def) return;
+    const next = placeAnimalEntity(s, speciesId, habitatId, at, {
+      acquisitionMethod: "buy",
+      cashCost: buyPrice(def),
+      rarity: speciesRarity(def),
     });
+    if (next) set(next);
+  },
+
+  acquireFromOffer: (offerId, habitatId, at) => {
+    const s = get();
+    const offer = s.animalOffers.find((o) => o.id === offerId);
+    if (!offer) return false;
+    const def = SPECIES_BY_ID[offer.speciesId];
+    if (!def) return false;
+    const next = placeAnimalEntity(s, offer.speciesId, habitatId, at, {
+      acquisitionMethod: offer.method,
+      cashCost: offer.cashCost,
+      conservationCost: offer.conservationCost,
+      health: offer.startingHealth,
+      hunger: offer.startingHunger,
+      welfare: offer.startingWelfare,
+      rarity: offer.rarityOverride ?? speciesRarity(def),
+    });
+    if (!next) return false;
+    set({
+      ...next,
+      animalOffers: s.animalOffers.filter((o) => o.id !== offerId),
+      build: {
+        ...s.build,
+        selectedOfferId: undefined,
+        selectedSpeciesId: undefined,
+        tool: "none",
+        active: false,
+      },
+    });
+    return true;
   },
 
   hireStaff: (role) => {
@@ -1031,6 +1118,7 @@ interface SavedPark {
     | "staff"
     | "buildings"
     | "unlockedSpecies"
+    | "animalOffers"
     | "stats"
   > & {
     ownedParcels?: string[];
@@ -1070,6 +1158,7 @@ export function saveGame(): boolean {
         buildings: s.buildings,
         litter: s.litter,
         unlockedSpecies: s.unlockedSpecies,
+        animalOffers: s.animalOffers,
         stats: s.stats,
       },
     };
@@ -1113,6 +1202,15 @@ export function loadGame(): boolean {
           next = { ...next, position: { x, z } };
         }
       }
+      const def = SPECIES_BY_ID[next.speciesId];
+      if (!next.acquisitionMethod) {
+        next = {
+          ...next,
+          acquisitionMethod: "buy",
+          variantSeed: next.variantSeed ?? hash01(id),
+          rarity: next.rarity ?? (def ? speciesRarity(def) : undefined),
+        };
+      }
       animals[id] = next;
     }
     const ownedParcels =
@@ -1151,6 +1249,10 @@ export function loadGame(): boolean {
       ownedParcels,
       plotSize: extent.plotSize,
       litter: parsed.state.litter ?? {},
+      animalOffers:
+        parsed.state.animalOffers?.length
+          ? parsed.state.animalOffers
+          : createStarterOffers(parsed.state.day ?? 1),
       guests: Object.fromEntries(
         Object.entries(parsed.state.guests ?? {}).map(([id, g]) => [id, migrateGuest(g, id)]),
       ),
@@ -1164,6 +1266,7 @@ export function loadGame(): boolean {
         tool: "none",
         selectedDefId: undefined,
         selectedSpeciesId: undefined,
+        selectedOfferId: undefined,
         rotation: 0,
         gridSize: 1,
         valid: true,
