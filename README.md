@@ -11,9 +11,9 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) and click **Open the Gates**.
+Open [http://localhost:5173](http://localhost:5173) and click **Open the Gates** for a clean empty park (optional skippable tips). Use **Tour the demo park** on the title screen to explore a ready-made sanctuary.
 
-Deep-link straight into the park: `http://localhost:5173/#play`
+Deep-link: `#play` (empty park) or `#demo` (demo park).
 
 ## Features
 
@@ -25,7 +25,7 @@ Deep-link straight into the park: `http://localhost:5173/#play`
 - **Land parcels** — buy adjacent plots in any direction; parking lot capacity gates arrivals
 - **Staff jobs** — keepers, habitat cleaners, janitors, vets, vendors, mechanics (Jobs menu)
 - **3D park** — orbit camera, day cycle, low-poly animals, walking guests
-- **Demo park** — opens with starter habitats so you can explore immediately
+- **Demo park** — optional title-screen tour with starter habitats; new games start empty
 
 ## Controls
 
