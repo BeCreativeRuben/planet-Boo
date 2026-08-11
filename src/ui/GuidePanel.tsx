@@ -67,9 +67,17 @@ const CONTENT: Record<SectionId, ReactNode> = {
       <h3>Open strong, spend slow</h3>
       <ol className="guide__list">
         <li>
-          You start with a demo park and a healthy balance. <strong>Pause (⏸)</strong> if
-          you need a breath — bills still wait for the next day, but nothing drifts while
-          you plan.
+          New parks start empty — entrance, parking, and a path stub only, with a
+          healthy balance. Prefer a guided walkthrough? Use <strong>Tour the demo
+          park</strong> on the title screen anytime.
+        </li>
+        <li>
+          <strong>Pause (⏸)</strong> if you need a breath — bills still wait for the
+          next day, but nothing drifts while you plan.
+        </li>
+        <li>
+          Build order that works: fence a closed habitat → match biome → place animals
+          → hire a zookeeper. Without keepers, animals starve.
         </li>
         <li>
           Click an animal to read its welfare bars, or open the <strong>Animal
@@ -77,21 +85,13 @@ const CONTENT: Record<SectionId, ReactNode> = {
           Red bars are jobs for you; green means leave them alone for now.
         </li>
         <li>
-          Fix the flamingos in Mirror Lagoon first — they&apos;re hungry and under-social.
-          Add more flamingos (Animals tab) and enrichment (Scenery tab → pool items).
-        </li>
-        <li>
           A full day/night cycle lasts about <strong>15 minutes</strong> at 1×. Daytime
           brings guests; night closes the gates for maintenance and building. Use
           <strong> 2× / 3×</strong> if you want to skip the night.
         </li>
         <li>
-          Open <strong>Finances</strong> (click Balance) and glance at today&apos;s costs
-          before buying a second elephant.
-        </li>
-        <li>
-          Press <strong>Esc</strong> to step back: land survey → modals → build tabs →
-          clear the selected animal or building.
+          Press <strong>Esc</strong> to step back: tutorial → land survey → modals →
+          build tabs → clear the selected animal or building.
         </li>
       </ol>
       <p className="guide__tip">

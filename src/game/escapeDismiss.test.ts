@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { escapeDismissAction, type EscapeDismissContext } from "./escapeDismiss";
 
 const base: EscapeDismissContext = {
+  tutorialOpen: false,
   landSelectOpen: false,
   financeOpen: false,
   guideOpen: false,
@@ -16,6 +17,12 @@ const base: EscapeDismissContext = {
 };
 
 describe("escapeDismissAction", () => {
+  it("skips the tutorial first", () => {
+    expect(escapeDismissAction({ ...base, tutorialOpen: true, landSelectOpen: true })).toBe(
+      "tutorial",
+    );
+  });
+
   it("closes land survey first", () => {
     expect(escapeDismissAction({ ...base, landSelectOpen: true })).toBe("land-survey");
   });

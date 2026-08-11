@@ -2,9 +2,8 @@
  * Wildhaven — Title screen.
  *
  * Full-bleed golden-hour hero. First viewport is intentionally sparse: brand,
- * one headline sentence, and a single CTA. A quiet "Continue" appears only when
- * a save exists in localStorage. Motion: a slow ken-burns drift on the photo
- * and staggered fade-ups on the text.
+ * one headline sentence, and a CTA group. Demo park stays available as a
+ * secondary option; Continue appears when a save exists.
  */
 
 import { useEffect, useState } from "react";
@@ -13,21 +12,24 @@ import { saveExists } from "../store/gameStore";
 const HERO_SRC = "/assets/wildhaven-hero.svg";
 
 interface TitleScreenProps {
-  /** Begin a fresh park. */
+  /** Begin a fresh empty park. */
   onStart: () => void;
-  /** Resume from a save; falls back to onStart when omitted. */
+  /** Load the hand-authored demo park. */
+  onDemo: () => void;
+  /** Resume from a save. */
   onContinue?: () => void;
 }
 
-export default function TitleScreen({ onStart, onContinue }: TitleScreenProps) {
+export default function TitleScreen({ onStart, onDemo, onContinue }: TitleScreenProps) {
   const [hasSave, setHasSave] = useState(false);
 
   // Read the save flag on mount (avoids SSR / hydration mismatches).
   useEffect(() => {
     setHasSave(saveExists());
-    // Deep-link straight into the park with #play (handy for sharing / testing).
+    // Deep-link straight into a clean park with #play (handy for sharing / testing).
     if (window.location.hash === "#play") onStart();
-  }, [onStart]);
+    if (window.location.hash === "#demo") onDemo();
+  }, [onStart, onDemo]);
 
   return (
     <main className="title">
@@ -67,6 +69,10 @@ export default function TitleScreen({ onStart, onContinue }: TitleScreenProps) {
             autoFocus
           >
             Open the Gates <span className="arrow">→</span>
+          </button>
+
+          <button type="button" className="title__continue" onClick={onDemo}>
+            Tour the demo park
           </button>
 
           {hasSave && (

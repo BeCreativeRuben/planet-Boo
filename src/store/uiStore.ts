@@ -10,6 +10,8 @@
 
 import { create } from "zustand";
 
+import { TUTORIAL_STEPS, isTutorialDone, markTutorialDone } from "../game/tutorial";
+
 /** Bottom-toolbar tabs. "animals" is the adoption strip. */
 export type BuildTab = "habitat" | "scenery" | "guest" | "staff" | "animals";
 
@@ -37,6 +39,9 @@ export interface UIStore {
   jobsOpen: boolean;
   /** Forced top-down land purchase survey. */
   landSelectOpen: boolean;
+  /** First-run skippable tutorial. */
+  tutorialOpen: boolean;
+  tutorialStep: number;
   /** Ids of derived notifications the player has dismissed this session. */
   dismissed: string[];
 
@@ -48,8 +53,13 @@ export interface UIStore {
   toggleJobs: () => void;
   openLandSelect: () => void;
   closeLandSelect: () => void;
-  /** Close finance / guide / animals / jobs / land survey. */
+  /** Close finance / guide / animals / jobs / land survey (not tutorial). */
   closeOverlays: () => void;
+  /** Offer the tutorial when the player has never finished/skipped it. */
+  maybeOpenTutorial: () => void;
+  nextTutorialStep: () => void;
+  prevTutorialStep: () => void;
+  skipTutorial: () => void;
   dismissNotification: (id: string) => void;
 }
 
@@ -61,13 +71,15 @@ const closeModals = {
   landSelectOpen: false,
 };
 
-export const useUIStore = create<UIStore>((set) => ({
+export const useUIStore = create<UIStore>((set, get) => ({
   activeTab: null,
   financeOpen: false,
   guideOpen: false,
   animalsOpen: false,
   jobsOpen: false,
   landSelectOpen: false,
+  tutorialOpen: false,
+  tutorialStep: 0,
   dismissed: [],
 
   setActiveTab: (tab) => set((s) => ({ activeTab: s.activeTab === tab ? null : tab })),
@@ -88,6 +100,27 @@ export const useUIStore = create<UIStore>((set) => ({
     set({ ...closeModals, landSelectOpen: true, activeTab: null }),
   closeLandSelect: () => set({ landSelectOpen: false }),
   closeOverlays: () => set({ ...closeModals }),
+
+  maybeOpenTutorial: () => {
+    if (isTutorialDone()) return;
+    set({ ...closeModals, tutorialOpen: true, tutorialStep: 0, activeTab: null });
+  },
+  nextTutorialStep: () => {
+    const { tutorialStep } = get();
+    if (tutorialStep >= TUTORIAL_STEPS.length - 1) {
+      markTutorialDone();
+      set({ tutorialOpen: false, tutorialStep: 0 });
+      return;
+    }
+    set({ tutorialStep: tutorialStep + 1 });
+  },
+  prevTutorialStep: () =>
+    set((s) => ({ tutorialStep: Math.max(0, s.tutorialStep - 1) })),
+  skipTutorial: () => {
+    markTutorialDone();
+    set({ tutorialOpen: false, tutorialStep: 0 });
+  },
+
   dismissNotification: (id) =>
     set((s) => (s.dismissed.includes(id) ? {} : { dismissed: [...s.dismissed, id] })),
 }));

@@ -49,6 +49,7 @@ import LandSurveyHud from "./LandSurveyHud";
 import GuidePanel from "./GuidePanel";
 import AnimalOverview from "./AnimalOverview";
 import JobsOverview from "./JobsOverview";
+import TutorialPanel from "./TutorialPanel";
 import { InspectorFrame } from "./InspectorFrame";
 
 const money = (n: number) => `$${Math.round(n).toLocaleString()}`;
@@ -70,6 +71,7 @@ function useEscapeDismiss() {
       const ui = useUIStore.getState();
       const game = useGameStore.getState();
       const action = escapeDismissAction({
+        tutorialOpen: ui.tutorialOpen,
         landSelectOpen: ui.landSelectOpen,
         financeOpen: ui.financeOpen,
         guideOpen: ui.guideOpen,
@@ -83,7 +85,8 @@ function useEscapeDismiss() {
       });
       if (action === "none") return;
 
-      if (action === "land-survey") ui.closeLandSelect();
+      if (action === "tutorial") ui.skipTutorial();
+      else if (action === "land-survey") ui.closeLandSelect();
       else if (action === "overlays") ui.closeOverlays();
       else if (action === "build") {
         ui.setActiveTab(null);
@@ -107,7 +110,18 @@ function useEscapeDismiss() {
 export default function HUD() {
   const activeTab = useUIStore((s) => s.activeTab);
   const landSelectOpen = useUIStore((s) => s.landSelectOpen);
+  const tutorialOpen = useUIStore((s) => s.tutorialOpen);
   useEscapeDismiss();
+
+  // Hold sim while the first-run tips are up so the empty park doesn't drift.
+  useEffect(() => {
+    if (!tutorialOpen) return;
+    const wasPaused = useGameStore.getState().paused;
+    useGameStore.getState().setPaused(true);
+    return () => {
+      if (!wasPaused) useGameStore.getState().setPaused(false);
+    };
+  }, [tutorialOpen]);
 
   return (
     <div className={`hud${landSelectOpen ? " hud--land-survey" : ""}`}>
@@ -133,6 +147,7 @@ export default function HUD() {
       <GuidePanel />
       <AnimalOverview />
       <JobsOverview />
+      <TutorialPanel />
     </div>
   );
 }

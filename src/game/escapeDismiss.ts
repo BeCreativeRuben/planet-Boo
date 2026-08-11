@@ -5,6 +5,7 @@
  */
 
 export type EscapeDismissAction =
+  | "tutorial"
   | "land-survey"
   | "overlays"
   | "build"
@@ -12,6 +13,7 @@ export type EscapeDismissAction =
   | "none";
 
 export interface EscapeDismissContext {
+  tutorialOpen: boolean;
   landSelectOpen: boolean;
   financeOpen: boolean;
   guideOpen: boolean;
@@ -26,6 +28,7 @@ export interface EscapeDismissContext {
 
 /** What Escape should dismiss first for the current UI state. */
 export function escapeDismissAction(ctx: EscapeDismissContext): EscapeDismissAction {
+  if (ctx.tutorialOpen) return "tutorial";
   if (ctx.landSelectOpen) return "land-survey";
   if (ctx.financeOpen || ctx.guideOpen || ctx.animalsOpen || ctx.jobsOpen) {
     return "overlays";

@@ -14,19 +14,26 @@ import HUD from "./ui/HUD";
 import { ZooScene } from "./world/ZooScene";
 import { seedDemoParkIfEmpty } from "./store/demoSeed";
 import { loadGame, saveGame } from "./store/gameStore";
+import { useUIStore } from "./store/uiStore";
 
 export default function App() {
   const [started, setStarted] = useState(false);
 
+  /** Fresh empty park (entrance + parking + path). */
   const start = () => {
-    // Populate an empty park with a small demo so both the 3D scene and HUD
-    // have something to show immediately (no-op once the player has built).
+    setStarted(true);
+    // Defer so HUD mounts before the tutorial card opens.
+    queueMicrotask(() => useUIStore.getState().maybeOpenTutorial());
+  };
+
+  /** Hand-authored demo park for touring systems. */
+  const startDemo = () => {
     seedDemoParkIfEmpty();
     setStarted(true);
   };
 
   const resume = () => {
-    if (!loadGame()) seedDemoParkIfEmpty();
+    loadGame();
     setStarted(true);
   };
 
@@ -39,7 +46,9 @@ export default function App() {
   }, [started]);
 
   if (!started) {
-    return <TitleScreen onStart={start} onContinue={resume} />;
+    return (
+      <TitleScreen onStart={start} onDemo={startDemo} onContinue={resume} />
+    );
   }
 
   return (
