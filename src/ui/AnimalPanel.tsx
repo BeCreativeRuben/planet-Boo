@@ -12,6 +12,7 @@
  */
 
 import { getSpecies } from "../game/species";
+import { METHOD_META, RARITY_META, effectiveRarity } from "../game/acquisition";
 import { welfareLabel } from "../game/welfare";
 import { welfareForAnimal } from "../store/selectors";
 import { useGameStore } from "../store/gameStore";
@@ -42,15 +43,6 @@ export function FactorBar({ label, value }: { label: string; value: number }) {
   );
 }
 
-const CONSERVATION_LABEL: Record<string, string> = {
-  LC: "Least Concern",
-  NT: "Near Threatened",
-  VU: "Vulnerable",
-  EN: "Endangered",
-  CR: "Critically Endangered",
-  EW: "Extinct in the Wild",
-};
-
 export default function AnimalPanel({ id }: { id: string }) {
   const animal = useGameStore((s) => s.animals[id]);
   const focusAnimal = useGameStore((s) => s.focusAnimal);
@@ -60,6 +52,8 @@ export default function AnimalPanel({ id }: { id: string }) {
   if (!animal || !welfare) return null;
 
   const species = getSpecies(animal.speciesId);
+  const rarity = species ? effectiveRarity(species, animal.rarity) : "common";
+  const method = METHOD_META[animal.acquisitionMethod];
   const years = (animal.age / 52).toFixed(1);
   const lifespanYears = (animal.lifespan / 52).toFixed(0);
   const focused = focusAnimalId === id;
@@ -76,12 +70,15 @@ export default function AnimalPanel({ id }: { id: string }) {
           {welfareLabel(welfare.score)}
         </span>
         {species && (
-          <span className="animal-panel__status" title="Conservation status">
-            {CONSERVATION_LABEL[species.conservationStatus] ??
-              species.conservationStatus}
+          <span className="animal-panel__status" title="Rarity tier">
+            {RARITY_META[rarity].label}
           </span>
         )}
       </div>
+
+      <p className="inspector__note">
+        Arrived via {method.icon} {method.label.toLowerCase()}
+      </p>
 
       {(starving || dying || animal.sick) && (
         <p className="inspector__note" style={{ color: "#e0655a" }}>

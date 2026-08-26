@@ -118,6 +118,8 @@ function makeAnimal(
     welfare: 80,
     sick: false,
     breedCooldown: 0,
+    acquisitionMethod: "buy",
+    variantSeed: Math.random(),
     ...overrides,
   };
 }

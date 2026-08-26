@@ -162,6 +162,38 @@ const CONTENT: Record<SectionId, ReactNode> = {
         hunger, and health. Hunger and health weigh heaviest — ignore them and the rest
         won&apos;t save the animal.
       </p>
+      <h3>How animals arrive</h3>
+      <p>
+        Open the <strong>Animals</strong> tab. The top row is <strong>Available now</strong> —
+        rotating intakes that change each day. Below that is the <strong>Catalog</strong> for
+        standard purchases.
+      </p>
+      <ul className="guide__list">
+        <li>
+          <strong>Shelter intake</strong> — cheap common species looking for a home.
+        </li>
+        <li>
+          <strong>Adopt / sanctuary transfer</strong> — low fees; some need conservation
+          points.
+        </li>
+        <li>
+          <strong>Wild rescue</strong> — injured or orphaned; arrives with low health but
+          costs less than catalog.
+        </li>
+        <li>
+          <strong>Spotted nearby</strong> — rare, short window; higher parks see more sightings.
+        </li>
+        <li>
+          <strong>Retired zoo</strong> — discounted lots from closing facilities; often stressed.
+        </li>
+        <li>
+          <strong>Purchase</strong> — full catalog price, healthiest starting stats.
+        </li>
+      </ul>
+      <p>
+        Rarity tiers (common → legendary) tint each animal and boost guest appeal. Select an
+        offer or species, then click inside a matching-biome habitat to place them.
+      </p>
       <ul className="guide__list">
         <li>
           <strong>Hunger</strong> — zookeepers feed animals automatically. No keepers
